@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import NamedTuple
 
+from data.generic_decrypt import GenericSample
+
 
 class ModelOutput(NamedTuple):
     ...
@@ -21,7 +23,6 @@ class AlignerBase(ABC):
     @abstractmethod
     def train_model(
             self,
-            batched_sample: ModelInput,
     ) -> None:
         ...
 

@@ -1,30 +1,29 @@
-from torchvision.models import resnet18, resnet50
+from abc import ABC, abstractmethod, abstractproperty
+from typing import NamedTuple, Tuple
 
 from torch import nn
 import torch
 
+from ..data.generic_decrypt import GenericSample
 
-class CTCAligner(nn.Module):
-    RESNET_TYPE = {
-        "resnet18": resnet18,
-        "resnet50": resnet50,
-    }
 
+class ModelOutput(NamedTuple):
+    output_coords: torch.Tensor
+    output_seqs: torch.Tensor
+    loss: torch.Tensor
+
+
+class GenericModel(ABC):
     def __init__(
             self,
-            rnet_type: str,
-
-    ) -> None:
-        super(CTCAligner).__init__()
-
-        self.cnn = self.RESNET_TYPE[rnet_type](pretrained=True)
-        self.cnn = nn.Sequential(*list(self.cnn.children())[:-2])
-
-        self.rnn = nn.LSTM()
-
-
-    def forward(
-            self,
-            
+            model: nn.Module,
     ):
-        ...
+        self._model = model
+
+    @abstractmethod
+    def inference(
+            self,
+            batch: GenericSample
+    ) -> ModelOutput:
+        raise NotImplementedError
+
