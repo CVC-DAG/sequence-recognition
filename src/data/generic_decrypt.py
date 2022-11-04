@@ -28,15 +28,16 @@ class GenericSample(NamedTuple):
 class GenericDecryptVocab:
     def __init__(
             self,
-            path: str
+            path: str,
     ) -> None:
         with open(path, "r") as f_labels:
             jlabels = json.load(f_labels)
 
+        self.blank = "<BLANK>"
         self.go_tok = "<GO>"
         self.stop_tok = "<STOP>"
         self.pad_tok = "<PAD>"
-        self.tokens = [self.go_tok, self.stop_tok, self.pad_tok]
+        self.tokens = [self.blank, self.go_tok, self.stop_tok, self.pad_tok]
         self.vocab = self.tokens + jlabels["labels"]
 
         self.vocab2index = {
@@ -84,14 +85,14 @@ class GenericDecryptDataset(D.Dataset):
             std=[0.229, 0.224, 0.225]
         )
     ])
-    RE_SEPARATOR = re.compile("~")
+    RE_SEPARATOR = re.compile(" ")
 
     def __init__(
             self,
             root_path: str,
             data_path: str,
             vocab: GenericDecryptVocab,
-            seqlen: Optional[int],
+            seqlen: int,
             aug_pipeline: Optional[Callable] = None,
     ) -> None:
         super(GenericDecryptDataset).__init__()
@@ -99,19 +100,24 @@ class GenericDecryptDataset(D.Dataset):
         self._samples = []
         self._root_path = Path(root_path)  # Images Folder
         self._data_path = Path(data_path)  # GT File
+        self._seqlen = seqlen
 
         self._aug_pipeline = aug_pipeline if aug_pipeline is not None \
             else self.DEFAULT_TRANSFORMS
 
         # Open gt data file and load its contents
-        with open(self.data_path, "r") as f_gt:
+        with open(self._data_path, "r") as f_gt:
             gt = json.load(f_gt)
 
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
-            segmentation = [(-1.0, -1.0)] + sample["segm"] + ([(-1.0, -1.0)] *
-                                                              (seqlen - len(sample["segm"] - 1))) \
-                if "segm" in sample else None
+            if "segm" in sample and len(sample["segm"]):
+                segmentation = [[-1.0, -1.0]] + sample["segm"] + \
+                              ([[-1.0, -1.0]] * (self._seqlen - len(sample["segm"]) - 1))
+                segmentation = np.array(segmentation)
+            else:
+                segmentation = None
+                                                
             og_len = len(transcript)
 
             transcript = vocab.encode(transcript)

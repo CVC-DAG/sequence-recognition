@@ -1,7 +1,9 @@
 import torch
 from torch import nn
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
+from warnings import warn
 
+from typing import Callable
 
 class FullyConvCTC(nn.Module):
     RESNETS = {
@@ -18,7 +20,7 @@ class FullyConvCTC(nn.Module):
             kern_upsampling: int,
             intermediate_units: int,
             output_units: int,
-            backbone: callable,
+            backbone: Callable,
             pretrained: bool = True,
     ) -> None:
         super().__init__()
@@ -56,3 +58,22 @@ class FullyConvCTC(nn.Module):
         y = self._softmax(x)
 
         return y
+
+    def load_weights(
+            self,
+            wpath: str,
+    ) -> None:
+        weights = torch.load(wpath)
+        missing, unexpected = self.load_state_dict(weights, strict=False)
+
+        if missing or unexpected:
+            warn("Careful: Not all weights have been loaded on the model")
+            print("Missing: ", missing)
+            print("Unexpected: ", unexpected)
+
+    def save_weights(self, path: str) -> None:
+        state_dict = self.state_dict()
+        torch.save(
+            state_dict,
+            path
+        )

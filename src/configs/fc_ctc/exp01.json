@@ -1,0 +1,27 @@
+{  
+    "exp_name": "exp01",
+    "description": "Attempting to actually perform inference using CTC",
+    "wandb_project": "ctc_align",
+    "wandb_mode": "online",
+    "train": {
+        "learning_rate": 1e-4,
+        "batch_size": 32,
+        "weight_decay": 1e-2
+    },
+    "dirs": {
+        "results_dir": "/home/ptorras/Documents/align_results",
+        "base_data_dir": "/home/ptorras/Documents/Datasets/decrypt_cleanup",
+        
+        "training_data": "copiale/gt_words_train.json",
+        "training_root": "copiale/words",
+        "validation_data": "copiale/gt_words_valid.json",
+        "validation_root": "copiale/words",
+        "test_data": "copiale/gt_words_test.json",
+        "test_root": "copiale/words",
+
+        "vocab_data": "copiale/vocab.json"
+    },
+    "model": {
+
+    }
+}

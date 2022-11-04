@@ -1,56 +1,60 @@
+import cv2
 import json
+import matplotlib.pyplot as plt
+import numpy as np
 import re
+import xml.etree.ElementTree as ET
 
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, NamedTuple, Tuple
 
-RE_SEPARATOR = re.compile(r"[ \n]")
-RE_CIPHER = re.compile(r"(\w+)_.*")
+
+RE_CIPHER = re.compile(r"(\w+)_(\w+)")
+MIN_SUBWORD_LENGTH = 12
+
+
+def imshow(
+        img: np.array
+) -> None:
+    plt.figure()
+    plt.imshow(img)
+    plt.show()
+    plt.close()
+
+
 root_path = Path("/home/ptorras/Documents/Datasets/decrypt/Validated")
+output_path = Path("/home/ptorras/Documents/Datasets/decrypt_cleanup")
+
+split_lut = {
+    "training": "train",
+    "valid": "valid",
+    "test": "test"
+}
 
 
-def produce_page_tokens(
-        page_path: Path
-) -> List[str]:
-    with open(page_path, 'r', encoding="ISO-8859-1") as f_txt:
-        txt = f_txt.read()
-    page_toks = list(set(RE_SEPARATOR.split(txt)))
-    print(page_toks)
-    return page_toks
+token_data = {}
 
+for folder in root_path.iterdir():
+    cipher, split = RE_CIPHER.match(folder.name).groups()
+    cipher = cipher.lower()
+    split = split.lower()
 
-def get_page_paths(
-        root_path: Path
-) -> Tuple[List[Path], List[str]]:
+    if cipher not in token_data:
+        token_data[cipher] = []
 
-    out_paths = []
-    out_dsets = []
+    for page in folder.iterdir():
+        xml_file = [x for x in page.iterdir() if x.suffix == ".xml"][0]
+        root_elm = ET.parse(xml_file).getroot()
 
-    for folder in root_path.iterdir():
-        matches = RE_CIPHER.match(folder.name)
-        cipher_name = matches.group(1)
-
-        for page in folder.iterdir():
-            txtfile = list(page.glob("*.txt"))[0]
-            out_paths.append(txtfile)
-            out_dsets.append(cipher_name)
-
-    return out_paths, out_dsets
-
-
-#%%
-RE_PLAINTEXT = re.compile("")
+        symbols = [symbol.attrib["text"]
+                   for line in root_elm.iter("line")
+                   for symbol in line.iter("symbol")]
+        token_data[cipher] = list(set(token_data[cipher] + symbols))
 
 
 #%%
-paths, ciphers = get_page_paths(root_path)
 
-tok_vocabs = {cipher: [] for cipher in list(set(ciphers))}
-
-for file, cipher in zip(paths, ciphers):
-    tok_vocabs[cipher] = list(set(
-        tok_vocabs[cipher] + produce_page_tokens(file)
-    ))
-
-tok_vocabs.items()
+for cipher in token_data.keys():
+    with open(output_path / cipher.lower() / "vocab.json", 'w') as f_out:
+        json.dump({"labels": token_data[cipher]}, f_out)
