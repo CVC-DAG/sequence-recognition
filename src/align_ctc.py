@@ -89,11 +89,14 @@ class Config(BaseModel):
 def load_configuration(
         config_path: str
 ) -> Config:
-    with open(config_path, 'r') as f_config:
+    path = Path(config_path)
+    with open(path, 'r') as f_config:
         cfg = json.load(f_config)
+        cfg["exp_name"] = path.stem
     cfg = Config(**cfg)
 
     return cfg
+
 
 def setup_dirs(
         cfg: Config
@@ -326,6 +329,7 @@ class Experiment:
             sequences = []
             gt_sequences = []
             fnames = []
+            total_train_loss = 0.0
 
             for sample in tqdm(self.data_train, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1

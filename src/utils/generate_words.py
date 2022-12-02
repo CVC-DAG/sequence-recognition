@@ -11,7 +11,7 @@ from typing import List, NamedTuple, Tuple
 
 
 RE_CIPHER = re.compile(r"(\w+)_(\w+)")
-MIN_SUBWORD_LENGTH = 12
+MIN_SUBWORD_LENGTH = 16
 
 
 def imshow(
@@ -111,7 +111,7 @@ for folder in root_path.iterdir():
                     line_name = f"{page_name}_l{ii:04d}_wl{subword_length:03d}_w{sindex:04d}.png"
 
                     width_coords = slice_bboxes[:, :2]
-                    width_coords = (width_coords - width_coords[0, 0]) / (width_coords[-1, -1] - width_coords[0, 0])
+                    width_coords = (width_coords - width_coords[0, 0])
 
                     curr_dict[line_name] = {
                         "segm": width_coords.tolist(),

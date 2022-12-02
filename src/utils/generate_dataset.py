@@ -103,13 +103,16 @@ for folder in root_path.iterdir():
             line_name = f"{page_name}_{ii:04d}.png"
 
             width_coords = line_bboxes[:, :2]
-            width_coords = (width_coords - width_coords[0, 0]) / (width_coords[-1, -1] - width_coords[0, 0])
+            width_coords = (width_coords - width_coords[0, 0])  # INFO should norm here
 
             curr_dict[line_name] = {
                 "segm": width_coords.tolist(),
                 "ts": " ".join(line_transcript),
             }
-            cv2.imwrite(str(output_path / cipher / "lines" / line_name), img_slice)
+            cv2.imwrite(
+                str(output_path / cipher / "lines" / line_name),
+                img_slice,
+            )
 
     with open(output_path / cipher / f"gt_lines_{split}.json", 'w') as f_json:
         json.dump(gt_data[cipher][split], f_json)

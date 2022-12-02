@@ -1,5 +1,4 @@
-{  
-    "exp_name": "exp01",
+{
     "description": "Attempting to actually perform inference using CTC",
     "wandb_project": "ctc_align",
     "wandb_mode": "online",

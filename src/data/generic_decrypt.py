@@ -4,25 +4,46 @@ import re
 from pathlib import Path
 
 import numpy as np
+from numpy.typing import ArrayLike
 from PIL import Image
 from torchvision import transforms as T
 from typing import AnyStr, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 import torch
 import torch.utils.data as D
+from torch import TensorType
 
 Coordinate = Tuple[int, int]
 
 
-class GenericSample(NamedTuple):
-    img: Optional[torch.Tensor]
-    gt: Union[torch.Tensor, np.array]
-    segm: Optional[List[Coordinate]]
+class GenericUnloadedSample(NamedTuple):
+    gt: ArrayLike
     og_len: int
-    curr_shape: Optional[Coordinate]
-    og_shape: Optional[Coordinate]
-    binthresh: int
-    filename: str
+    segm: ArrayLike
+    filename: str 
+
+    
+class GenericSample(NamedTuple):
+    gt: ArrayLike
+    og_len: int
+    segm: ArrayLike
+    filename: str 
+
+    img: ArrayLike
+    curr_shape: Coordinate
+    og_shape: Coordinate
+
+
+class BatchedSample(NamedTuple):
+    gt: TensorType
+    og_len: TensorType
+    segm: TensorType
+    filename: TensorType
+
+    img: TensorType
+    curr_shape: TensorType
+    og_shape: TensorType
+
 
 
 class GenericDecryptVocab:
@@ -78,7 +99,6 @@ class GenericDecryptVocab:
 
 class GenericDecryptDataset(D.Dataset):
     DEFAULT_TRANSFORMS = T.Compose([
-        T.Resize((224, 224)),
         T.ToTensor(),
         T.Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -102,8 +122,7 @@ class GenericDecryptDataset(D.Dataset):
         self._data_path = Path(data_path)  # GT File
         self._seqlen = seqlen
 
-        self._aug_pipeline = aug_pipeline if aug_pipeline is not None \
-            else self.DEFAULT_TRANSFORMS
+        self._aug_pipeline = aug_pipeline or self.DEFAULT_TRANSFORMS
 
         # Open gt data file and load its contents
         with open(self._data_path, "r") as f_gt:
@@ -111,28 +130,20 @@ class GenericDecryptDataset(D.Dataset):
 
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
-            if "segm" in sample and len(sample["segm"]):
-                segmentation = [[-1.0, -1.0]] + sample["segm"] + \
-                              ([[-1.0, -1.0]] * (self._seqlen - len(sample["segm"]) - 1))
-                segmentation = np.array(segmentation)
-            else:
-                segmentation = None
+            segmentation = [[-1.0, -1.0]] + sample["segm"] + \
+                            ([[-1.0, -1.0]] * (self._seqlen - len(sample["segm"]) - 1))
+            segmentation = np.array(segmentation)
                                                 
             og_len = len(transcript)
-
             transcript = vocab.encode(transcript)
 
             if seqlen is not None:
                 transcript = vocab.pad(transcript, seqlen)
 
-            self._samples.append(GenericSample(
-                img=None,
+            self._samples.append(GenericUnloadedSample(
                 gt=np.asarray(transcript),
-                segm=segmentation,
                 og_len=og_len,
-                curr_shape=None,
-                og_shape=None,
-                binthresh=128,
+                segm=segmentation,
                 filename=str(self._root_path / fn),
             ))
 
@@ -154,12 +165,6 @@ class GenericDecryptDataset(D.Dataset):
         new_shape = img.shape[1:]
 
         return GenericSample(
-            img=img,
-            gt=sample.gt,
-            segm=sample.segm,
-            og_len=sample.og_len,
-            curr_shape=new_shape,
-            og_shape=og_shape,
-            binthresh=128,
-            filename=sample.filename,
+            **sample,
+            
         )
