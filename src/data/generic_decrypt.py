@@ -258,35 +258,3 @@ class GenericDecryptDataset(D.Dataset):
             new_shape,
             og_shape,
         )
-
-
-if __name__ == "__main__":
-    from typing import (
-        List,
-        Tuple,
-    )
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from numpy.typing import ArrayLike
-
-    def plotimg(img: ArrayLike) -> None:
-        """Display an image in a singleton plot.
-
-        :param img: Input image in array-like fashion.
-        """
-        plt.figure()
-        plt.imshow(img)
-        plt.show()
-        plt.close()
-
-    data_file = Path("/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale/gt_lines_test.json")
-    vocab_file = Path("/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale/vocab.json")
-    image_path = Path("/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale/lines")
-
-    vocab = GenericDecryptVocab(vocab_file)
-    dataset = GenericDecryptDataset(str(image_path), str(data_file), vocab, 256, (512, 64), None)
-
-    plotimg(dataset[91].img.permute((1, 2, 0)))
-
-    print("done")
