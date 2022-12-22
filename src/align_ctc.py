@@ -78,6 +78,7 @@ class DirectoryConfig(BaseModel):
 
 class Config(BaseModel):
     exp_name: str
+    cipher: str
     description: str
     wandb_project: str
     wandb_mode: str
@@ -130,6 +131,7 @@ def setup_dirs(
     cfg.vocab_data = str(vocab_data)
 
     return cfg
+
 
 def setup(
 ) -> Config:
