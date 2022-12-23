@@ -62,7 +62,6 @@ class Prediction:
 
     @staticmethod
     def from_ctc_decoding(
-            self,
             char_indices: ArrayLike,
             gt_sequence: ArrayLike,
             ctc_matrix: ArrayLike,

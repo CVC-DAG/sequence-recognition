@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from utils.augmentations import PadToMax, ResizeKeepingRatio, BinariseFixed, \
     Blackout, StackChannels, KanungoNoise, ToFloat, ToNumpy
 from utils.ops import levenshtein
+from utils.decoding import Prediction, Coordinate, decode_ctc
 
 
 class TrainConfig(BaseModel):
@@ -66,11 +67,11 @@ class DirectoryConfig(BaseModel):
     results_dir: str
     base_data_dir: str
 
-    training_data: str
+    training_file: str
     training_root: str
-    validation_data: str
+    validation_file: str
     validation_root: str
-    test_data: str
+    test_file: str
     test_root: str
 
     vocab_data: str
@@ -105,11 +106,11 @@ def setup_dirs(
     results_path = Path(cfg.dirs.results_dir)
     base_data_path = Path(cfg.dirs.base_data_dir)
 
-    training_data = base_data_path / cfg.dirs.training_data
+    training_file = base_data_path / cfg.dirs.training_file
     training_root = base_data_path / cfg.dirs.training_root
-    validation_data = base_data_path / cfg.dirs.validation_data
+    validation_file = base_data_path / cfg.dirs.validation_file
     validation_root = base_data_path / cfg.dirs.validation_root
-    test_data = base_data_path / cfg.dirs.test_data
+    test_file = base_data_path / cfg.dirs.test_file
     test_root = base_data_path / cfg.dirs.test_root
 
     vocab_data = Path(cfg.dirs.vocab_data)
@@ -121,11 +122,11 @@ def setup_dirs(
     if not vocab_data.exists():
         raise FileNotFoundError
 
-    cfg.dirs.training_data = str(training_data)
+    cfg.dirs.training_file = str(training_file)
     cfg.dirs.training_root = str(training_root)
-    cfg.dirs.validation_data = str(validation_data)
+    cfg.dirs.validation_file = str(validation_file)
     cfg.dirs.validation_root = str(validation_root)
-    cfg.dirs.test_data = str(test_data)
+    cfg.dirs.test_file = str(test_file)
     cfg.dirs.test_root = str(test_root)
 
     cfg.vocab_data = str(vocab_data)
@@ -133,8 +134,7 @@ def setup_dirs(
     return cfg
 
 
-def setup(
-) -> Config:
+def setup() -> Config:
     """
     """
     parser = ArgumentParser(
@@ -167,30 +167,31 @@ def setup(
 
     return cfg
 
+
 def create_datasets(
         cfg: Config
 ) -> Tuple[D.DataLoader, D.DataLoader, D.DataLoader, GenericDecryptVocab]:
-    """
+    """Load datasets and vocab object from the experiment configuration.
+
+    :param cfg: Experiment configuration.
+    :returns: Training, validation and test partitions as dataloaders, as well
+    as the vocabulary object to convert back and forth to encoded and decoded
+    representations.
     """
     AUGMENTATIONS = {
-        0: T.Compose([
-            ResizeKeepingRatio(cfg.model.target_shape),
-            PadToMax(cfg.model.target_shape),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]),
+        0: [],
     }
 
     train_augs = AUGMENTATIONS[cfg.train.augmentation]
     valid_augs = AUGMENTATIONS[0]
 
     vocab = GenericDecryptVocab(cfg.dirs.vocab_data)
-    
+
     train_dataset, valid_dataset, test_dataset = [
         D.DataLoader(
             GenericDecryptDataset(
-                rootpath,
-                datapath,
+                img_path,
+                data_file,
                 vocab,
                 cfg.model.sequence_length,
                 aug
@@ -200,14 +201,15 @@ def create_datasets(
             pin_memory=True if not ii and "cuda" in cfg.train.device else False,
             num_workers=cfg.train.workers,
         )
-        for ii, (rootpath, datapath, aug) in enumerate(zip(
+        for ii, (img_path, data_file, aug) in enumerate(zip(
             [cfg.dirs.training_root, cfg.dirs.validation_root, cfg.dirs.test_root],
-            [cfg.dirs.training_data, cfg.dirs.validation_data, cfg.dirs.test_data],
+            [cfg.dirs.training_file, cfg.dirs.validation_file, cfg.dirs.test_file],
             [train_augs, valid_augs, valid_augs]
         ))
     ]
 
     return train_dataset, valid_dataset, test_dataset, vocab
+
 
 def get_lr(
         optimizer
@@ -215,12 +217,6 @@ def get_lr(
     for param_group in optimizer.param_groups:
         return param_group['lr']
     return 0.0
-
-
-def decode_output(
-        model_output: Tensor
-) -> List[str]:
-    ...
 
 
 class Experiment:
@@ -278,7 +274,7 @@ class Experiment:
             )
         else:
             self.sched_warmup = None
-        
+
         if self.cfg.train.cosann_sched:
             self.sched_cosann = sched.CosineAnnealingWarmRestarts(
                 optimizer=self.optimizer,
@@ -288,7 +284,7 @@ class Experiment:
             )
         else:
             self.sched_cosann = None
-        
+
         self.run_name = wandb.run.name
 
         self.device = torch.device(self.cfg.train.device)
@@ -307,7 +303,7 @@ class Experiment:
         self.save_path = Path(self.cfg.dirs.results_dir) / self.cfg.exp_name
 
         self.json_name = lambda split, epoch: f"{split}_run_{self.run_name}_e{epoch:05d}.json"
-        
+
     def load_model_weights(
             self,
             path: str
@@ -376,7 +372,6 @@ class Experiment:
                 fnames,
                 train_loss,
                 epoch,
-                confidences,
             )
 
             if not epoch % self.cfg.train.save_every:
@@ -447,10 +442,9 @@ class Experiment:
 
         return table["SER"].mean()
 
-
     def save_current_weights(self, epoch: int) -> None:
         curr_name = self.curr_name(epoch)
-        
+
         self.model.save_weights(
             str(self.save_path / curr_name)
         )

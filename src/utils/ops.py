@@ -1,15 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Nice function and operator collection
-
-Created on Mon Sep 27 09:13:43 2021
-
-@author: ptorras
-"""
+"""Nice function and operator collection."""
 
 import numpy as np
 from typing import List, Tuple
+
 
 def iou(ref, cmp, thresh=None):
     """
@@ -64,11 +57,16 @@ def iou(ref, cmp, thresh=None):
 
     return iou
 
+
 def fiou(bboxes1, bboxes2):
-    """
+    """Fast IoU Implementation.
+
     Fast IoU implementation from https://medium.com/@venuktan/vectorized-intersection-over-union-iou-in-numpy-and-tensor-flow-4fa16231b63d
     We compared it against our own and decided to use this as it is much more
     memory efficient.
+
+    :param bboxes1: Array of bounding boxes in XYXY format.
+    :param bboxes2: Array of bounding boxes in XYXY format.
     """
     x11, y11, x12, y12 = np.split(bboxes1, 4, axis=1)
     x21, y21, x22, y22 = np.split(bboxes2, 4, axis=1)
@@ -86,6 +84,7 @@ def fiou(bboxes1, bboxes2):
     iou = inter_area / (boxa_area + np.transpose(boxb_area) - inter_area)
 
     return iou
+
 
 def compare_gt(iou, confidence):
     """
@@ -130,6 +129,7 @@ def compare_gt(iou, confidence):
                 (max_iou > 0))
         belonging[losers] = -1
     return belonging
+
 
 def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
     """
@@ -190,6 +190,7 @@ def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
 
     return np.asarray(out_box), np.asarray(out_conf), np.asarray(out_labels)
 
+
 def avg_precision(gt, pred):
     """
     Computes the Average Precision of a series of predictions against a ground
@@ -227,6 +228,7 @@ def avg_precision(gt, pred):
     AP = np.sum((step_recall - offset_step_recall[:-1]) * mono_precision)
 
     return AP
+
 
 def levenshtein(source, target) -> Tuple[float, List]:
     """

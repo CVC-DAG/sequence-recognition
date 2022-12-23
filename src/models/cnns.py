@@ -1,3 +1,5 @@
+"""CNN-based recognition and alignment models."""
+
 import torch
 from torch import nn
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
@@ -5,7 +7,10 @@ from warnings import warn
 
 from typing import Callable
 
+
 class FullyConvCTC(nn.Module):
+    """A fully convolutional CTC model with convolutional upsampling."""
+
     RESNETS = {
         18: resnet18,
         34: resnet34,
@@ -47,6 +52,10 @@ class FullyConvCTC(nn.Module):
             self,
             x: torch.Tensor,
     ) -> torch.Tensor:
+        """Compute the transcription of the input batch images x.
+
+        :param x: Batch of input tensor images.
+        """
         # x: N x 3   x H       x W
         x = self._backbone(x)       # N x 512 x H // 32 x W // 32
         x = self._pooling(x)        # N x 512 x 1       x W // 32
