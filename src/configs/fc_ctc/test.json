@@ -3,10 +3,10 @@
     "cipher": "copiale",
     "description": "A Fully Convolutional CTC model for alignment",
     "wandb_project": "decrypt-align",
-    "wandb_mode": "online",
+    "wandb_mode": "disabled",
     "train": {
         "augmentation": 0,
-        "batch_size": 64,
+        "batch_size": 32,
         "checkpoint": null,
         "device": "cuda",
         "grad_clip": null,
@@ -16,7 +16,7 @@
         "save_every": 2,
         "eval_every": 1,
         "weight_decay": 1e-4,
-        "workers": 8,
+        "workers": 4,
 
         "plateau_sched": false,
         "plateau_factor": 1e-1,
