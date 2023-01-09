@@ -8,30 +8,43 @@ from warnings import warn
 from typing import Callable
 
 
+RESNETS = {
+    18: resnet18,
+    34: resnet34,
+    50: resnet50,
+    101: resnet101,
+    152: resnet152,
+}
+
+
+def create_resnet(
+    resnet_type: int,
+    headless: bool = True,
+    pretrained: bool = True
+) -> nn.Module:
+    resnet = RESNETS[resnet_type]
+    resnet = resnet(pretrained=pretrained)
+
+    if headless:
+        resnet = nn.Sequential(*list(resnet.children())[:-2])
+    return resnet
+
+
 class FullyConvCTC(nn.Module):
     """A fully convolutional CTC model with convolutional upsampling."""
 
-    RESNETS = {
-        18: resnet18,
-        34: resnet34,
-        50: resnet50,
-        101: resnet101,
-        152: resnet152,
-    }
-
     def __init__(
-            self,
-            width_upsampling: int,
-            kern_upsampling: int,
-            intermediate_units: int,
-            output_units: int,
-            backbone: Callable,
-            pretrained: bool = True,
+        self,
+        width_upsampling: int,
+        kern_upsampling: int,
+        intermediate_units: int,
+        output_units: int,
+        resnet_type: int,
+        pretrained: bool = True,
     ) -> None:
         super().__init__()
 
-        backmodel = backbone(pretrained=pretrained)
-        self._backbone = nn.Sequential(*list(backmodel.children())[:-2])
+        self._backbone = create_resnet(resnet_type, pretrained=pretrained)
         self._pooling = nn.AdaptiveAvgPool2d((1, 32))
 
         self._upsample = nn.ConvTranspose2d(
@@ -46,7 +59,7 @@ class FullyConvCTC(nn.Module):
             in_channels=intermediate_units,
             out_channels=output_units,
         )
-        self._softmax = nn.Softmax(dim=-1)
+        self._softmax = nn.LogSoftmax(dim=-1)
 
     def forward(
             self,

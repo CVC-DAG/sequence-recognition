@@ -236,7 +236,7 @@ class Experiment:
             kern_upsampling=self.cfg.model.kern_upsampling,
             intermediate_units=self.cfg.model.intermediate_units,
             output_units=len(self.vocab),
-            backbone=FullyConvCTC.RESNETS[self.cfg.model.resnet],
+            resnet_type=self.cfg.model.resnet,
             pretrained=self.cfg.model.pretrained,
         )
 
@@ -326,6 +326,8 @@ class Experiment:
         return output
 
     def train(self) -> None:
+        summary(self.model)
+
         for epoch in range(1, self.cfg.train.max_epochs + 1):
             self.model.train()
 
