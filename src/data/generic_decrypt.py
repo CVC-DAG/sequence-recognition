@@ -111,21 +111,27 @@ class GenericDecryptVocab:
         """
         return [self.index2vocab[x] for x in encoded]
 
-    def pad(self, encoded: List[int], pad_len: int) -> List[int]:
+    def pad(self, encoded: List[int], pad_len: int, go: bool = False) -> List[int]:
         """Pad input sequence to a fixed width using special tokens.
 
         :param labels: List of indices for a Decrypt transcript.
         :param pad_len: Expected length of the output sequence.
+        :param go: Whether to insert go and end tokens in the transcript.
         :returns: List of indices with a go and an end token at the beginning
         and the end of the sequence plus padding tokens to match the max
         sequence length provided as argument.
         """
         assert len(encoded) + 2 <= pad_len
-        return [self.vocab2index[self.go_tok]] \
-            + encoded \
-            + [self.vocab2index[self.stop_tok]] \
-            + [self.vocab2index[self.pad_tok]
-               for _ in range(pad_len - len(encoded) - 2)]
+        if go:
+            return [self.vocab2index[self.go_tok]] \
+                + encoded \
+                + [self.vocab2index[self.stop_tok]] \
+                + [self.vocab2index[self.pad_tok]
+                   for _ in range(pad_len - len(encoded) - 2)]
+        else:
+            return encoded + (
+                [self.vocab2index[self.pad_tok]] * (pad_len - len(encoded))
+            )
 
     def unpad(self, padded: List[int]) -> List[int]:
         """Perform the inverse operation to the pad function.
@@ -237,9 +243,9 @@ class GenericDecryptDataset(D.Dataset):
         og_shape = img.size
         img_width, img_height = og_shape
         tgt_width, tgt_height = self._target_shape
-        new_shape = tuple(map(lambda x: int(x * factor)))
 
         factor = min(tgt_width / img_width, tgt_height / img_height)
+        new_shape = tuple(map(lambda x: int(x * factor), og_shape))
 
         img = img.resize(new_shape)
         padded_img = Image.new(img.mode, self._target_shape, (255, 255, 255))

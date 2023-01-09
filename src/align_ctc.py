@@ -6,7 +6,11 @@ import torchvision.transforms as T
 import wandb
 
 from argparse import ArgumentParser
-from data.generic_decrypt import GenericDecryptDataset, GenericDecryptVocab, GenericSample
+from data.generic_decrypt import (
+    GenericDecryptDataset,
+    GenericDecryptVocab,
+    GenericSample,
+)
 from models.cnns import FullyConvCTC
 from pathlib import Path
 from pydantic import BaseModel
@@ -17,18 +21,26 @@ from torch import Tensor
 from torch.optim import lr_scheduler as sched
 from tqdm.auto import tqdm
 from typing import Dict, List, Optional, Tuple, Union
-from utils.augmentations import PadToMax, ResizeKeepingRatio, BinariseFixed, \
-    Blackout, StackChannels, KanungoNoise, ToFloat, ToNumpy
+from utils.augmentations import (
+    PadToMax,
+    ResizeKeepingRatio,
+    BinariseFixed,
+    Blackout,
+    StackChannels,
+    KanungoNoise,
+    ToFloat,
+    ToNumpy,
+)
 from utils.ops import levenshtein
-from utils.decoding import Prediction, Coordinate, decode_ctc
+from utils.decoding import decode_ctc_greedy
 
 
 class TrainConfig(BaseModel):
     augmentation: int
     batch_size: int
-    checkpoint: str
+    checkpoint: Optional[str]
     device: str
-    grad_clip: float
+    grad_clip: Optional[float]
     max_epochs: int
     learning_rate: float
     optimizer: str
@@ -37,20 +49,20 @@ class TrainConfig(BaseModel):
     weight_decay: float
     workers: int
 
-    plateau_sched: bool         # Use plateau scheduler
-    plateau_factor: float       # Factor by which to reduce LR on plateau
-    plateau_iters: int          # Number of epochs on which to reduce w/o improvement
-    plateau_thresh: float       # Threshold to measure significant changes
-    plateau_min: float          # Min LR value allowed
+    plateau_sched: bool  # Use plateau scheduler
+    plateau_factor: float  # Factor by which to reduce LR on plateau
+    plateau_iters: int  # Number of epochs on which to reduce w/o improvement
+    plateau_thresh: float  # Threshold to measure significant changes
+    plateau_min: float  # Min LR value allowed
 
-    warmup_sched: bool          # Use warmup scheduler
-    warmup_factor: float        # Factor of reduction of lr at train start
-    warmup_iters: int           # Number of iterations to increase LR at the start
+    warmup_sched: bool  # Use warmup scheduler
+    warmup_factor: float  # Factor of reduction of lr at train start
+    warmup_iters: int  # Number of iterations to increase LR at the start
 
-    cosann_sched: bool          # Use cosine annealing scheduler
-    cosann_t0: int              # Iters until first restart
-    cosann_factor: int          # Factor by which to increase the number of iters until restart
-    cosann_min: float           # Min learning rate
+    cosann_sched: bool  # Use cosine annealing scheduler
+    cosann_t0: int  # Iters until first restart
+    cosann_factor: int  # Factor by which to increase the number of iters until restart
+    cosann_min: float  # Min learning rate
 
 
 class ModelConfig(BaseModel):
@@ -59,7 +71,7 @@ class ModelConfig(BaseModel):
     pretrained: bool
     resnet: int
     sequence_length: int
-    target_shape: Tuple[int, int]   # Width, Height
+    target_shape: Tuple[int, int]  # Width, Height
     output_upsampling: int
 
 
@@ -88,11 +100,9 @@ class Config(BaseModel):
     dirs: DirectoryConfig
 
 
-def load_configuration(
-        config_path: str
-) -> Config:
+def load_configuration(config_path: str) -> Config:
     path = Path(config_path)
-    with open(path, 'r') as f_config:
+    with open(path, "r") as f_config:
         cfg = json.load(f_config)
         cfg["exp_name"] = path.stem
     cfg = Config(**cfg)
@@ -100,9 +110,7 @@ def load_configuration(
     return cfg
 
 
-def setup_dirs(
-        cfg: Config
-) -> Config:
+def setup_dirs(cfg: Config) -> Config:
     results_path = Path(cfg.dirs.results_dir)
     base_data_path = Path(cfg.dirs.base_data_dir)
 
@@ -129,21 +137,22 @@ def setup_dirs(
     cfg.dirs.test_file = str(test_file)
     cfg.dirs.test_root = str(test_root)
 
-    cfg.vocab_data = str(vocab_data)
+    cfg.dirs.vocab_data = str(vocab_data)
+    cfg.dirs.results_dir = str(exp_results)
 
     return cfg
 
 
 def setup() -> Config:
-    """
+    """Load configuration and set up paths.
+
+    :returns: Singleton configuration object.
     """
     parser = ArgumentParser(
         description="Sequence to Sequence model training",
     )
     parser.add_argument(
-        "config_path",
-        type=str,
-        help="Configuration path for the experiment"
+        "config_path", type=str, help="Configuration path for the experiment"
     )
     parser.add_argument(
         "--test",
@@ -159,8 +168,8 @@ def setup() -> Config:
 
     wandb.init(
         project=cfg.wandb_project,
-        dir=Path(cfg.dirs.results_dir) / cfg.exp_name,
-        config=cfg.json(),
+        dir=cfg.dirs.results_dir,
+        config=cfg.dict(),
         mode=cfg.wandb_mode,
         save_code=True,
     )
@@ -169,7 +178,7 @@ def setup() -> Config:
 
 
 def create_datasets(
-        cfg: Config
+    cfg: Config,
 ) -> Tuple[D.DataLoader, D.DataLoader, D.DataLoader, GenericDecryptVocab]:
     """Load datasets and vocab object from the experiment configuration.
 
@@ -190,43 +199,37 @@ def create_datasets(
     train_dataset, valid_dataset, test_dataset = [
         D.DataLoader(
             GenericDecryptDataset(
-                img_path,
-                data_file,
-                vocab,
-                cfg.model.sequence_length,
-                aug
+                img_path, data_file, vocab, cfg.model.sequence_length, cfg.model.target_shape, aug
             ),
             batch_size=cfg.train.batch_size,
             shuffle=True if not ii else False,
             pin_memory=True if not ii and "cuda" in cfg.train.device else False,
             num_workers=cfg.train.workers,
         )
-        for ii, (img_path, data_file, aug) in enumerate(zip(
-            [cfg.dirs.training_root, cfg.dirs.validation_root, cfg.dirs.test_root],
-            [cfg.dirs.training_file, cfg.dirs.validation_file, cfg.dirs.test_file],
-            [train_augs, valid_augs, valid_augs]
-        ))
+        for ii, (img_path, data_file, aug) in enumerate(
+            zip(
+                [cfg.dirs.training_root, cfg.dirs.validation_root, cfg.dirs.test_root],
+                [cfg.dirs.training_file, cfg.dirs.validation_file, cfg.dirs.test_file],
+                [train_augs, valid_augs, valid_augs],
+            )
+        )
     ]
 
     return train_dataset, valid_dataset, test_dataset, vocab
 
 
-def get_lr(
-        optimizer
-) -> float:
+def get_lr(optimizer) -> float:
     for param_group in optimizer.param_groups:
-        return param_group['lr']
+        return param_group["lr"]
     return 0.0
 
 
 class Experiment:
-    def __init__(
-            self,
-            cfg: Config
-    ) -> None:
+    def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
-        self.data_train, self.data_valid, \
-            self.data_test, self.vocab = create_datasets(self.cfg)
+        self.data_train, self.data_valid, self.data_test, self.vocab = create_datasets(
+            self.cfg
+        )
 
         self.model = FullyConvCTC(
             width_upsampling=self.cfg.model.output_upsampling,
@@ -256,7 +259,7 @@ class Experiment:
         if self.cfg.train.plateau_sched:
             self.sched_plateau = sched.ReduceLROnPlateau(
                 optimizer=self.optimizer,
-                mode="min",
+                mode="max",
                 factor=self.cfg.train.plateau_factor,
                 patience=self.cfg.train.plateau_iters,
                 threshold=self.cfg.train.plateau_thresh,
@@ -292,64 +295,60 @@ class Experiment:
 
         self.model = self.model.to(self.device)
 
-        self.subsequent_mask = self.subsequent_mask.to(self.device)
         self.train_iters = 0
-
         self.best_ser = 99999999
         self.best_epoch = -1
 
-        self.best_name = f"weights_run_{self.run_name}_BEST.pth"
-        self.curr_name = lambda epoch: f"weights_run_{self.run_name}_e{epoch}.pth"
-        self.save_path = Path(self.cfg.dirs.results_dir) / self.cfg.exp_name
+        self.best_name = f"weights_exp_{self.cfg.exp_name}_run_{self.run_name}_BEST.pth"
+        self.curr_name = (
+            lambda epoch: f"weights_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch}.pth"
+        )
+        self.save_path = Path(self.cfg.dirs.results_dir)
 
-        self.json_name = lambda split, epoch: f"{split}_run_{self.run_name}_e{epoch:05d}.json"
+        self.json_name = (
+            lambda split, epoch: f"{split}_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch:05d}.json"
+        )
 
-    def load_model_weights(
-            self,
-            path: str
-    ) -> None:
+    def load_model_weights(self, path: str) -> None:
+        """Load weights pointed by the input path to the experiment model.
+
+        :param path: Path to the weights to load.
+        """
         self.model.load_weights(path)
 
-    def inference_step(
-            self,
-            sample: GenericSample,
-    ) -> Tensor:
+    def inference_step(self, sample: GenericSample) -> Tensor:
+        """Perform a single step of inference.
+
+        :param sample: Input sample to pass through the model.
+        """
         output = self.model(sample.img.to(self.device))
 
         return output
 
-    def train(
-            self, 
-    ) -> None:
+    def train(self) -> None:
         for epoch in range(1, self.cfg.train.max_epochs + 1):
             self.model.train()
 
             sequences = []
             gt_sequences = []
             fnames = []
-            total_train_loss = 0.0
 
             for sample in tqdm(self.data_train, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
                 output = self.inference_step(sample)
-                train_loss = self.loss_function(
+                batch_loss = self.loss_function(
                     output,
                     sample.gt.to(self.device),
-                    torch.full(
-                        size=sample.img.shape[0],
-                        fill_value=output.shape[1],
-                        dtype=torch.long
-                    ),
-                    sample.og_len,
+                    (output.shape[0],) * sample.gt.shape[0],
+                    tuple(sample.og_len.tolist()),
                 )
 
                 self.optimizer.zero_grad()
-                train_loss.backward()
+                batch_loss.backward()
 
                 if self.cfg.train.grad_clip is not None:
                     nn.utils.clip_grad_norm_(
-                        self.model.parameters(),
-                        self.cfg.train.grad_clip
+                        self.model.parameters(), self.cfg.train.grad_clip
                     )
 
                 self.optimizer.step()
@@ -359,18 +358,29 @@ class Experiment:
                 if self.sched_cosann:
                     self.sched_cosann.step()
 
-                wandb.log({
-                    "step": self.train_iters,
-                    "lr": get_lr(self.optimizer),
-                    "train_loss": train_loss,
-                })
+                wandb.log(
+                    {
+                        "lr": get_lr(self.optimizer),
+                        "train_loss": batch_loss,
+                    },
+                    step=self.train_iters,
+                )
+
+                output = output.permute((1, 0, 2))
+                output = output.detach().cpu().numpy()
+                pred_sequences = [decode_ctc_greedy(x) for x in output]
+
+                sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences]
+                gt_sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
+
+                fnames += sample.filename
 
             self.log_results(
                 "train",
                 sequences,
                 gt_sequences,
                 fnames,
-                train_loss,
+                batch_loss,
                 epoch,
             )
 
@@ -384,9 +394,7 @@ class Experiment:
                     self.best_ser = val_ser
                     self.best_epoch = epoch
 
-                    self.model.save_weights(
-                        str(self.save_path / self.best_name)
-                    )
+                    self.model.save_weights(str(self.save_path / self.best_name))
 
                 # _ = self.test(epoch)
 
@@ -394,63 +402,157 @@ class Experiment:
                     self.sched_plateau.step(val_ser)
 
     def validate(
-            self,
-            epoch: int,
+        self,
+        epoch: int,
     ) -> Tuple[float, float]:
-        raise NotImplementedError
+        self.model.eval()
+        total_loss = 0.0
+
+        sequences = []
+        gt_sequences = []
+        fnames = []
+
+        with torch.no_grad():
+            for sample in tqdm(
+                self.data_valid, desc=f"Validation for epoch {epoch} in Progress..."
+            ):
+                output = self.inference_step(sample)
+                batch_loss = self.loss_function(
+                    output,
+                    sample.gt.to(self.device),
+                    (output.shape[0],) * sample.gt.shape[0],
+                    tuple(sample.og_len.tolist()),
+                )
+                total_loss += batch_loss
+
+                wandb.log(
+                    {
+                        "valid_loss": batch_loss,
+                    },
+                    step=self.train_iters,
+                )
+
+                output = output.permute((1, 0, 2))
+                output = output.detach().cpu().numpy()
+                pred_sequences = [decode_ctc_greedy(x) for x in output]
+
+                sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences]
+                gt_sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
+
+                fnames += sample.filename
+
+            ser = self.log_results(
+                "valid",
+                sequences,
+                gt_sequences,
+                fnames,
+                batch_loss,
+                epoch,
+            )
+
+            return total_loss / len(self.data_valid), ser
 
     def test(
-            self,
-            epoch: int,
+        self,
+        epoch: int,
     ) -> Tuple[float, float]:
-        raise NotImplementedError
+        self.model.eval()
+        total_loss = 0.0
+
+        sequences = []
+        gt_sequences = []
+        fnames = []
+
+        with torch.no_grad():
+            for sample in tqdm(
+                self.data_test, desc=f"Test for epoch {epoch} in Progress..."
+            ):
+                output = self.inference_step(sample)
+                batch_loss = self.loss_function(
+                    output,
+                    sample.gt.to(self.device),
+                    torch.full(
+                        size=sample.img.shape[0],
+                        fill_value=output.shape[1],
+                        dtype=torch.long,
+                    ),
+                    sample.og_len,
+                )
+                total_loss += batch_loss
+
+                wandb.log(
+                    {
+                        "test_loss": batch_loss,
+                    },
+                    step=self.train_iters,
+                )
+
+                output = output.permute((1, 0, 2))
+                output = output.detach().cpu().numpy()
+                pred_sequences = [decode_ctc_greedy(x) for x in output]
+
+                sequences += [self.vocab.unpad(x) for x in pred_sequences]
+                gt_sequences += [self.vocab.unpad(x) for x in sample.gt]
+
+                fnames += sample.filename
+
+            ser = self.log_results(
+                "test",
+                sequences,
+                gt_sequences,
+                fnames,
+                batch_loss,
+                epoch,
+            )
+
+            return total_loss / len(self.data_test), ser
 
     def log_results(
-            self,
-            split: str,
-            sequences: List,
-            gt_sequences: List,
-            fnames: List,
-            loss: float,
-            epoch: int,
-            confidences: List,
+        self,
+        split: str,
+        sequences: List,
+        gt_sequences: List,
+        fnames: List,
+        loss: float,
+        epoch: int,
     ) -> float:
-        results = [[" ".join(x), k, " ".join(y), levenshtein(x, y)[0], epoch, z]
-                        for x, y, z, k in zip(sequences, gt_sequences, fnames, confidences)]
+        results = [
+            [" ".join(x), " ".join(y), levenshtein(x, y)[0], epoch, z]
+            for x, y, z in zip(sequences, gt_sequences, fnames)
+        ]
         table = pd.DataFrame(
             results,
-            columns=["Text", "Confidences", "Ground Truth", "SER", "Epoch", "Filename"]
+            columns=["Text", "Ground Truth", "SER", "Epoch", "Filename"],
         )
 
-        wandb.log({
-            "step": self.train_iters,
-            "epoch": epoch,
-            f"{split}_loss": loss,
-            f"{split}_SER_mean": table["SER"].mean(),
-            f"{split}_SER_std": table["SER"].std(),
-            f"{split}_sequences": table.head(25),
-        })
-
-        if split == "train" and epoch % self.cfg.train.save_every:
-            return table["SER"].mean()
-
-        table.to_json(
-            str(
-                self.save_path / self.json_name(split, epoch)
-            )
+        wandb.log(
+            {
+                "epoch": epoch,
+                f"{split}_loss": loss,
+                f"{split}_SER_mean": table["SER"].mean(),
+                f"{split}_SER_std": table["SER"].std(),
+                f"{split}_sequences": table.head(25),
+            },
+            step=self.train_iters,
         )
+
+        table.to_json(str(self.save_path / self.json_name(split, epoch)))
 
         return table["SER"].mean()
 
     def save_current_weights(self, epoch: int) -> None:
         curr_name = self.curr_name(epoch)
 
-        self.model.save_weights(
-            str(self.save_path / curr_name)
-        )
+        self.model.save_weights(str(self.save_path / curr_name))
 
         prev_name = self.curr_name(epoch - self.cfg.train.save_every)
         prev_weights = self.save_path / prev_name
 
         if prev_weights.exists():
             prev_weights.unlink()
+
+
+if __name__ == "__main__":
+    cfg = setup()
+    exp = Experiment(cfg)
+    exp.train()

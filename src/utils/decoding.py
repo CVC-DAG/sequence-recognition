@@ -375,3 +375,23 @@ class PrefixTree:
             self._beams = level_nodes
 
         return self._beams[0].produce_sequence()
+
+
+def decode_ctc_greedy(ctc_matrix: ArrayLike) -> List[int]:
+    """Decode a CTC output matrix greedily and produce a sequence list.
+
+    :param ctc_matrix: An output matrix from a CTC-like model. Should have
+    shape S x C, where S is the sequence length and C is the number of classes.
+    :returns: A list containing the decoded sequence.
+    """
+    maximum = ctc_matrix.argmax(axis=-1)
+    last_char = BLANK_CHARACTER
+    output = []
+    for char in maximum:
+        if char != BLANK_CHARACTER:
+            if last_char == BLANK_CHARACTER or last_char != char:
+                output.append(char)
+                last_char = char
+        else:
+            last_char = BLANK_CHARACTER
+    return output

@@ -63,15 +63,12 @@ class FullyConvCTC(nn.Module):
         x = self._activation(x)
         x = self._output(x)         # N x CLS x~(W // 32 - 1) * K
         x = x.squeeze(2)            # N x INT x ~(W // 32 - 1) * K
-        x = x.permute((0, 2, 1))    # N x ~(W // 32 - 1) * K x  CLS
+        x = x.permute((2, 0, 1))    # ~(W // 32 - 1) * K x N x  CLS
         y = self._softmax(x)
 
         return y
 
-    def load_weights(
-            self,
-            wpath: str,
-    ) -> None:
+    def load_weights(self, wpath: str) -> None:
         weights = torch.load(wpath)
         missing, unexpected = self.load_state_dict(weights, strict=False)
 
