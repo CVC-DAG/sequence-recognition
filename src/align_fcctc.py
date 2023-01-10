@@ -189,6 +189,11 @@ def create_datasets(
     """
     AUGMENTATIONS = {
         0: [],
+        1: [
+            T.GaussianBlur(3),
+            T.RandomEqualize(),
+            T.RandomPerspective(),
+        ]
     }
 
     train_augs = AUGMENTATIONS[cfg.train.augmentation]
@@ -259,7 +264,7 @@ class Experiment:
         if self.cfg.train.plateau_sched:
             self.sched_plateau = sched.ReduceLROnPlateau(
                 optimizer=self.optimizer,
-                mode="max",
+                mode="min",
                 factor=self.cfg.train.plateau_factor,
                 patience=self.cfg.train.plateau_iters,
                 threshold=self.cfg.train.plateau_thresh,
