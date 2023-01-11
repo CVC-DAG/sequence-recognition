@@ -13,14 +13,16 @@ from data.generic_decrypt import (
 )
 from models.cnns import FullyConvCTC
 from utils.decoding import decode_ctc
+from align_fcctc import Config
 
 
 class Evaluator:
     def __init__(
         self,
         model: nn.Module,
+        data: 
     ) -> None:
-        raise NotImplementedError
+        self._model = model
 
     def eval(self) -> None:
-        raise NotImplementedError
+        

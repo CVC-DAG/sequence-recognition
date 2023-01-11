@@ -32,7 +32,7 @@ from utils.augmentations import (
     ToNumpy,
 )
 from utils.ops import levenshtein
-from utils.decoding import decode_ctc_greedy
+from utils.decoding import decode_ctc_greedy, decode_ctc
 
 
 class TrainConfig(BaseModel):
