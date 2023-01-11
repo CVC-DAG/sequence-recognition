@@ -1,46 +1,46 @@
 {
-    "exp_name": "template", 
+    "exp_name": "exploratory026",
     "cipher": "copiale",
     "description": "Exploratory hyperparameter tuning configurations",
     "wandb_project": "decrypt-align",
     "wandb_mode": "online",
     "train": {
         "augmentation": 1,
-        "batch_size": anyof [32, 64, 128],
+        "batch_size": 64,
         "checkpoint": null,
         "device": "cuda",
-        "grad_clip": anyof [null, 1.0],
+        "grad_clip": 1.0,
         "max_epochs": 10,
-        "learning_rate": range [1e-5, 1e-3],
+        "learning_rate": 0.0003846970529409434,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 1,
-        "weight_decay": logrange [1e-7, 1e-1],
+        "weight_decay": 0.0010358139917064967,
         "workers": 8,
-
         "plateau_sched": false,
-        "plateau_factor": 1e-1,
+        "plateau_factor": 0.1,
         "plateau_iters": 5,
         "plateau_thresh": 0.01,
-        "plateau_min": 1e-7,
-
-        "warmup_sched": anyof [true, false],
-        "warmup_factor": 1e-1,
+        "plateau_min": 1e-07,
+        "warmup_sched": true,
+        "warmup_factor": 0.1,
         "warmup_iters": 5000,
-
         "cosann_sched": false,
-        "cosann_t0": 3e-4,
-        "cosann_factor": 1e-1,
-        "cosann_min": 1e-5 
+        "cosann_t0": 0.0003,
+        "cosann_factor": 0.1,
+        "cosann_min": 1e-05
     },
     "model": {
-        "kern_upsampling": anyof [1, 3, 7, 11],
-        "intermediate_units": anyof [128, 256, 512, 1024],
+        "kern_upsampling": 1,
+        "intermediate_units": 512,
         "pretrained": true,
-        "resnet": anyof [18, 34, 50],
+        "resnet": 34,
         "sequence_length": 128,
-        "target_shape": anyof [[512, 64], [1024, 64]],
-        "output_upsampling": anyof [7, 8, 9]
+        "target_shape": [
+            512,
+            64
+        ],
+        "output_upsampling": 7
     },
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",

@@ -33,6 +33,14 @@ def create_resnet(
 class FullyConvCTC(nn.Module):
     """A fully convolutional CTC model with convolutional upsampling."""
 
+    LAYER_DEPTHS = {
+        18: 512,
+        34: 512,
+        50: 2048,
+        101: 2048,
+        152: 2048
+    }
+
     def __init__(
         self,
         width_upsampling: int,
@@ -48,7 +56,7 @@ class FullyConvCTC(nn.Module):
         self._pooling = nn.AdaptiveAvgPool2d((1, 32))
 
         self._upsample = nn.ConvTranspose2d(
-            in_channels=512,
+            in_channels=self.LAYER_DEPTHS[resnet_type],
             out_channels=intermediate_units,
             kernel_size=(1, kern_upsampling),
             stride=(1, width_upsampling),

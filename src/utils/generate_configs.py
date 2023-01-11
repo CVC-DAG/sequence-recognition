@@ -24,22 +24,24 @@ LARK_GRAMMAR = r"""
 ?value: object
       | array
       | string
-      | SIGNED_NUMBER      -> number
+      | SIGNED_FLOAT       -> nfloat
+      | SIGNED_INT         -> nint
       | "true"             -> true
       | "false"            -> false
       | "null"             -> null
 
 array  : "[" [value ("," value)*] "]"
 object : "{" [pair ("," pair)*] "}"
-pair   : string ":" instruction? value
+pair   : string ":" INSTRUCTION? value
 
 string : ESCAPED_STRING
-instruction: "anyof"
+INSTRUCTION: "anyof"
            | "range"
            | "logrange"
 
 %import common.ESCAPED_STRING
-%import common.SIGNED_NUMBER
+%import common.SIGNED_FLOAT
+%import common.SIGNED_INT
 %import common.WS
 
 %ignore WS
@@ -48,20 +50,22 @@ instruction: "anyof"
 
 class GeneratorFactory:
     @classmethod
-    def create_anyof(values):
+    def create_anyof(cls, values):
         def anyof(values=values):
             return choice(values)
         return anyof
 
     @classmethod
-    def create_range(values):
+    def create_range(cls, values):
         def rrange(values=values):
             return uniform(*values)
+        return rrange
 
     @classmethod
-    def create_logrange(values):
+    def create_logrange(cls, values):
         def lrange(values=values):
             return 10**(uniform(*map(log10, values)))
+        return lrange
 
 
 class TJSONTransformer(Transformer):
@@ -71,26 +75,38 @@ class TJSONTransformer(Transformer):
 
     array = list
     object = dict
-    number = v_args(inline=True)(float)
+    nfloat = v_args(inline=True)(float)
+    nint = v_args(inline=True)(int)
 
     null = lambda self, _: None
     true = lambda self, _: True
     false = lambda self, _: False
 
-    @v_args(inline=True)
-    def pair(self, name, instruction, value):
+    instruction = lambda self, x: x.value
+
+    def pair(self, children):
+        if len(children) == 2:
+            name = children[0]
+            instruction = None
+            value = children[1]
+        else:
+            name = children[0]
+            instruction = children[1]
+            value = children[2]
+
+        # return children
         if instruction is not None:
-            assert type(value) is List
+            assert type(value) is list
             if instruction == "anyof":
-                return tuple(name, GeneratorFactory.create_anyof(value))
+                return (name, GeneratorFactory.create_anyof(value))
             elif instruction == "range":
-                return tuple(name, GeneratorFactory.create_range(value))
+                return (name, GeneratorFactory.create_range(value))
             elif instruction == "logrange":
-                return tuple(name, GeneratorFactory.create_logrange(value))
+                return (name, GeneratorFactory.create_logrange(value))
             else:
                 raise NotImplementedError
         else:
-            return tuple(name, value)
+            return (name, value)
 
 
 class TemplateParser:
@@ -111,13 +127,12 @@ class TemplateParser:
 
         return newconfig
 
-    @classmethod
-    def run_tree(base_object: Dict) -> Dict:
+    def run_tree(self, base_object: Dict) -> Dict:
         for k, v in base_object.items():
             if callable(v):
                 base_object[k] = v()
             if type(v) == dict:
-                base_object[k] = TemplateParser.run_tree(base_object)
+                base_object[k] = self.run_tree(v)
         return base_object
 
 
@@ -156,10 +171,10 @@ def main(args: Namespace) -> None:
 
     for ii in range(args.nfiles):
         name = args.exp_name + f"{ii:03d}"
-        config = temp_parser.generate_config()
+        config = temp_parser.generate_config(name)
 
         with open(output_path / (name + ".json"), 'w') as f_json:
-            json.dump(config, f_json)
+            json.dump(config, f_json, indent=4)
 
 
 if __name__ == "__main__":
