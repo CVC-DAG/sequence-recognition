@@ -86,6 +86,31 @@ def fiou(bboxes1, bboxes2):
     return iou
 
 
+def seqiou(bboxes1, bboxes2):
+    """IoU for sequences of 1D boxes (segments).
+
+    :param bboxes1: Matrix of coordinates with shape P x 2 corresponding to the
+    prediction.
+    :param bboxes2: Matrix of coordinates with shape Q x 2 corresponding to the
+    ground truth.
+    :returns: Intersection over union of the two sets of boxes.
+    """
+    x11, x12 = np.split(bboxes1, 2, axis=-1)
+    x21, x22 = np.split(bboxes1, 2, axis=-1)
+
+    xa = np.maximum(x11, x21.T)
+    xb = np.minimum(x12, x22.T)
+
+    intersection = np.maximum((xb - xa + 1), 0)
+
+    segm_length_1 = x12 - x11
+    segm_length_2 = x22 - x21
+
+    iou = intersection / (segm_length_1 + segm_length_2.T - intersection)
+
+    return iou
+
+
 def compare_gt(iou, confidence):
     """
     Compare each ground truth box against a prediction and align them. Solve

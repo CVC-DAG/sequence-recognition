@@ -158,35 +158,6 @@ class PredictionGroup:
         raise NotImplementedError
 
 
-def decode_ctc(
-    ctc_mat: ArrayLike,
-    out_seq: ArrayLike,
-    beam_width: int = MAX_WIDTH,
-) -> ArrayLike:
-    """Produce the most likely decoding of out_seq.
-
-    Iterate over all possible transcriptions of each batch in a ctc model
-    and produce the most likely decoding of the ground truth sequence.
-
-    :param ctc_mat: (sequence length, batch size, class confidence) matrix
-    produced by a model.
-    :param out_seq: (batch size, sequence length) array with numbers as
-    elements in the sequence (zero is strictly reserved for the blank symbol).
-    """
-    outputs = []
-    ctc_mat = ctc_mat.transpose((1, 0, 2))
-    batch_size, seqlen, classes = ctc_mat.target_shape
-
-    for mat, transcript in zip(ctc_mat, out_seq):
-        tree = PrefixTree(
-            None,
-            transcript,
-            beam_width
-        )
-        outputs.append(tree.decode())
-    return outputs
-
-
 class PrefixNode:
     """Node within a prefix tree with the full parent nodes' transcription."""
 
@@ -375,6 +346,35 @@ class PrefixTree:
             self._beams = level_nodes
 
         return self._beams[0].produce_sequence()
+
+
+def decode_ctc(
+    ctc_mat: ArrayLike,
+    out_seq: ArrayLike,
+    beam_width: int = MAX_WIDTH,
+) -> ArrayLike:
+    """Produce the most likely decoding of out_seq.
+
+    Iterate over all possible transcriptions of each batch in a ctc model
+    and produce the most likely decoding of the ground truth sequence.
+
+    :param ctc_mat: (sequence length, batch size, class confidence) matrix
+    produced by a model.
+    :param out_seq: (batch size, sequence length) array with numbers as
+    elements in the sequence (zero is strictly reserved for the blank symbol).
+    """
+    outputs = []
+    ctc_mat = ctc_mat.transpose((1, 0, 2))
+    batch_size, seqlen, classes = ctc_mat.target_shape
+
+    for mat, transcript in zip(ctc_mat, out_seq):
+        tree = PrefixTree(
+            None,
+            transcript,
+            beam_width
+        )
+        outputs.append(tree.decode())
+    return outputs
 
 
 def decode_ctc_greedy(ctc_matrix: ArrayLike) -> List[int]:

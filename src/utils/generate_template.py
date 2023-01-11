@@ -1,5 +1,9 @@
+"""Given a BaseModel config definition, generate a JSON config template."""
+
 from __future__ import annotations
+
 from pydantic import BaseModel
+from typing import Type
 
 
 class TemplateGenerator:
