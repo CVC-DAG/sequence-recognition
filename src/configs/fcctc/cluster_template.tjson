@@ -40,7 +40,8 @@
         "resnet": anyof [50, 101],
         "sequence_length": 70,
         "target_shape": anyof [[512, 64], [1024, 128]],
-        "output_upsampling": anyof [7, 8, 9]
+        "output_upsampling": anyof [7, 8, 9],
+        "decode_beams": 10
     },
     "dirs": {
         "results_dir": "/data2/users/ptorras/decrypt/results",

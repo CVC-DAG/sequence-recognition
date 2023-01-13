@@ -40,7 +40,8 @@
         "resnet": anyof [18, 34, 50],
         "sequence_length": 128,
         "target_shape": anyof [[512, 64], [1024, 64]],
-        "output_upsampling": anyof [7, 8, 9]
+        "output_upsampling": anyof [7, 8, 9],
+        "decode_beams": 10
     },
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",
