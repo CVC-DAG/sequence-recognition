@@ -92,7 +92,12 @@ class Prediction:
         return seqiou(pred_coordinates, gt_coordinates)
 
     def get_sequence(self) -> List[int]:
+        """Return the underlying sequence of character in encoded format."""
         return self._characters
+
+    def get_coords(self) -> List[Coordinate]:
+        """Return the predicted pixel coordinates."""
+        return self._coordinates
 
     @staticmethod
     def from_ctc_decoding(
@@ -134,7 +139,7 @@ class Prediction:
                     coordinates.append(
                         Coordinate(start_coordinate, int(ind * column_size))
                     )
-                    confidences.append(np.array(partial_confidences).mean())
+                    confidences.append(np.exp(np.array(partial_confidences)).mean())
 
                     current_char = char_index
                     start_coordinate = int(ind * column_size)
@@ -202,6 +207,7 @@ class PrefixNode:
             char_index: int,
             parent: Optional[PrefixNode],
             confidence: float,
+            column: int = -1,
     ) -> None:
         """Construct a PrefixNode.
 
@@ -217,12 +223,20 @@ class PrefixNode:
         self._parent = parent
         self._confidence = confidence
         self._children = []
+        self._column = column
 
     def __str__(self) -> str:
         return f"Prefix Node: index {self._char_index} conf {self._confidence}"
 
     def repr(self) -> str:
         return str(self)
+
+    @property
+    def column(
+            self,
+    ) -> int:
+        """Get the depth of this node (CTC Column being decoded)."""
+        return self._column
 
     @property
     def character(
@@ -283,7 +297,9 @@ class PrefixNode:
         """
         cumulative_confidence = self._confidence + confidence
 
-        node = PrefixNode(character, char_index, self, cumulative_confidence)
+        node = PrefixNode(
+            character, char_index, self, cumulative_confidence, self._column + 1
+        )
         self._children.append(node)
 
         return node
@@ -305,7 +321,7 @@ class PrefixNode:
             node = node._parent
 
         decoding.reverse()
-        return np.array(decoding[1:])
+        return np.array(decoding)
 
 
 # TODO Implement this but using a dynamic programming algorithm (I *think* it
@@ -334,13 +350,48 @@ class PrefixTree:
         self._root_character = root_character
         self._output_sequence = output_sequence
         self._beams: List[PrefixNode] = [self._root_character]
+        self._ended: List[PrefixNode] = []
         self._beam_width = beam_width
 
+    def complete(self) -> bool:
+        """Check whether the set of beams is complete or not."""
+        if not len(self._ended):
+            return False
+        if not len(self._beams):
+            return True
+        if self._ended[0].confidence > self._beams[0].confidence:
+            return True
+        else:
+            return False
+
     def __str__(self) -> str:
-        return f"Prefix tree with <={self._beam_width} beams:" + str([str(x) for x in self._beams])
+        """Get a string representation of the object."""
+        return f"Prefix tree with <={self._beam_width} beams:" + \
+            str([str(x) for x in self._beams])
 
     def __repr__(self) -> str:
+        """Get a string representation of the object."""
         return str(self)
+
+    def _filter_nodes(
+        self,
+        columns: int,
+        nodelist: List[PrefixNode]
+    ) -> None:
+        alive_nodes = []
+
+        for node in nodelist:
+            if node.column == columns - 1 and node.char_index == len(self._output_sequence) - 1:
+                self._ended.append(node)
+            elif len(self._output_sequence) - node.char_index - 1 < (columns - node.column - 1):
+                alive_nodes.append(node)
+        self._ended.sort(key=lambda x: x.confidence, reverse=True)
+        alive_nodes.sort(key=lambda x: x.confidence, reverse=True)
+
+        if self._beam_width > 0:
+            alive_nodes = alive_nodes[:self._beam_width]
+
+        self._beams = alive_nodes
 
     def decode(
             self,
@@ -354,9 +405,8 @@ class PrefixTree:
         :returns: Highest likelihood character indices for the ground truth
         sequence.
         """
-        for position, column in enumerate(ctc_matrix):
-            level_nodes = []
-
+        while not self.complete():
+            alive_nodes = []
             for node in self._beams:
                 char_index = node._char_index
                 character = node._character
@@ -364,35 +414,30 @@ class PrefixTree:
                 if not character == BLANK_CHARACTER:
 
                     # Add same character as current node into the expansion
-                    level_nodes.append(node.expand(
+                    alive_nodes.append(node.expand(
                         self._output_sequence[char_index],
                         char_index,
-                        column[character],
+                        ctc_matrix[node.column + 1][character],
                     ))
 
                 # Add blank character
-                level_nodes.append(node.expand(
+                alive_nodes.append(node.expand(
                     BLANK_CHARACTER,
                     char_index,
-                    column[BLANK_CHARACTER],
+                    ctc_matrix[node.column + 1][BLANK_CHARACTER],
                 ))
 
                 if char_index < len(self._output_sequence) - 1:
                     # Add next character
-                    level_nodes.append(node.expand(
+                    alive_nodes.append(node.expand(
                         self._output_sequence[char_index + 1],
                         char_index + 1,
-                        column[self._output_sequence[char_index + 1]],
+                        ctc_matrix[node.column + 1][self._output_sequence[char_index + 1]],
                     ))
 
-            level_nodes.sort(key=lambda x: x.confidence, reverse=True)
+            self._filter_nodes(ctc_matrix.shape[0], alive_nodes)
 
-            if self._beam_width > 0:
-                level_nodes = level_nodes[:self._beam_width]
-
-            self._beams = level_nodes
-
-        return self._beams[0].produce_sequence()
+        return self._ended[0].produce_sequence()[1:]
 
 
 def decode_ctc(

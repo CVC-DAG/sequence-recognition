@@ -121,8 +121,9 @@ def seqiou(bboxes1, bboxes2):
     :returns: Intersection over union of the two sets of boxes compared using
     input sequential ordering.
     """
+    assert len(bboxes1) == len(bboxes2), "Number of input bboxes is not equal"
     x11, x12 = np.split(bboxes1, 2, axis=-1)
-    x21, x22 = np.split(bboxes1, 2, axis=-1)
+    x21, x22 = np.split(bboxes2, 2, axis=-1)
 
     x11 = x11.flatten()
     x12 = x12.flatten()

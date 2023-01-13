@@ -211,8 +211,8 @@ class GenericDecryptDataset(D.Dataset):
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
             segmentation = sample["segm"] + \
-                ([[-1.0, -1.0]] * (self._seqlen - len(sample["segm"])))
-            segmentation = np.array(segmentation)
+                ([[-1, -1]] * (self._seqlen - len(sample["segm"])))
+            segmentation = np.array(segmentation, dtype=int)
 
             og_len = len(transcript)
             transcript = vocab.prepare_data(transcript, self._seqlen)

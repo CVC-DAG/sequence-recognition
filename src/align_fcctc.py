@@ -325,6 +325,9 @@ class Experiment:
         self.json_name = (
             lambda split, epoch: f"{split}_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch:05d}.json"
         )
+        self.csv_name = (
+            lambda split, epoch: f"{split}_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch:05d}.csv"
+        )
 
         self.iou_thresholds = [.25, .50, .75]
 
@@ -357,10 +360,16 @@ class Experiment:
             for sample in tqdm(self.data_train, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
                 output = self.inference_step(sample)
+
+                columns = output.shape[0]
+                target_shape = cfg.model.target_shape[0]
+                input_lengths = sample.curr_shape[0] * (columns / target_shape)
+                input_lengths = input_lengths.numpy().astype(int).tolist()
+
                 batch_loss = self.loss_function(
                     output,
                     sample.gt.to(self.device),
-                    (output.shape[0],) * sample.gt.shape[0],
+                    input_lengths,
                     tuple(sample.og_len.tolist()),
                 )
 
@@ -439,10 +448,19 @@ class Experiment:
                 dataset, desc=f"{mode} for epoch {epoch} in Progress..."
             ):
                 output = self.inference_step(sample)
+
+                columns = output.shape[0]
+                target_shape = cfg.model.target_shape[0]
+                curr_shape = sample.curr_shape[0]
+                og_shape = sample.og_shape[0]
+
+                input_lengths = sample.curr_shape[0] * (columns / target_shape)
+                input_lengths = input_lengths.numpy().astype(int).tolist()
+
                 batch_loss = self.loss_function(
                     output,
                     sample.gt.to(self.device),
-                    (output.shape[0],) * sample.gt.shape[0],
+                    input_lengths,
                     tuple(sample.og_len.tolist()),
                 )
                 total_loss += batch_loss
@@ -450,11 +468,6 @@ class Experiment:
                 output = output.detach().cpu().numpy()
                 curr_gt = [np.array(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
                 segm = sample.segm.numpy()
-
-                columns = output.shape[0]
-                target_shape = cfg.model.target_shape[0]
-                curr_shape = sample.curr_shape[0]
-                og_shape = sample.og_shape[0]
 
                 widths = (target_shape / columns) * (og_shape / curr_shape)
 
@@ -466,7 +479,8 @@ class Experiment:
                 )
 
                 fnames += sample.filename
-                gt_coordinates += [x[np.all(x > 0, axis=1)] for x in segm]
+                gt_coordinates += [x[:length]
+                                   for x, length in zip(segm, sample.og_len)]
 
             ser = self.log_validation(
                 mode,
@@ -503,7 +517,7 @@ class Experiment:
                 hit75 = np.sum(iou >= 0.75) / len(iou)
                 misses = np.sum(iou == 0) / len(iou)
                 results.append([
-                    fname, mean_iou, runn_avg, std_iou, hit25, hit50, hit75, misses, pred.get_sequence(), gt.tolist()
+                    fname, mean_iou, runn_avg, std_iou, hit25, hit50, hit75, misses, pred.get_coords(), gt.tolist()
                 ])
             else:
                 results.append([
@@ -523,6 +537,7 @@ class Experiment:
         )
 
         table.to_json(str(self.save_path / self.json_name(split, epoch)))
+        table.to_csv(str(self.save_path / self.csv_name(split, epoch)))
 
     def log_results(
         self,
