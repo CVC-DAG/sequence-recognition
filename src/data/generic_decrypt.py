@@ -111,18 +111,18 @@ class GenericDecryptVocab:
         """
         return [self.index2vocab[x] for x in encoded]
 
-    def pad(self, encoded: List[int], pad_len: int, go: bool = False) -> List[int]:
+    def pad(self, encoded: List[int], pad_len: int, special: bool = False) -> List[int]:
         """Pad input sequence to a fixed width using special tokens.
 
         :param labels: List of indices for a Decrypt transcript.
         :param pad_len: Expected length of the output sequence.
-        :param go: Whether to insert go and end tokens in the transcript.
+        :param special: Whether to insert go and end tokens in the transcript.
         :returns: List of indices with a go and an end token at the beginning
         and the end of the sequence plus padding tokens to match the max
         sequence length provided as argument.
         """
         assert len(encoded) + 2 <= pad_len
-        if go:
+        if special:
             return [self.vocab2index[self.go_tok]] \
                 + encoded \
                 + [self.vocab2index[self.stop_tok]] \
@@ -210,8 +210,8 @@ class GenericDecryptDataset(D.Dataset):
 
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
-            segmentation = [[-1.0, -1.0]] + sample["segm"] + \
-                ([[-1.0, -1.0]] * (self._seqlen - len(sample["segm"]) - 1))
+            segmentation = sample["segm"] + \
+                ([[-1.0, -1.0]] * (self._seqlen - len(sample["segm"])))
             segmentation = np.array(segmentation)
 
             og_len = len(transcript)
@@ -253,12 +253,12 @@ class GenericDecryptDataset(D.Dataset):
 
         padded_img = self._aug_pipeline(padded_img)
 
-        normalised_coords = (sample.segm * factor) / tgt_width
+        # normalised_coords = (sample.segm * factor) / tgt_width
 
         return GenericSample(
             sample.gt,
             sample.og_len,
-            normalised_coords,
+            sample.segm,  # normalised_coords,
             sample.filename,
             padded_img,
             new_shape,

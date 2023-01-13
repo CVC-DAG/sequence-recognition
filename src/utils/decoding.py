@@ -6,10 +6,13 @@ coordinates and/or sequences (depending on the nature of the algorithm).
 
 from __future__ import annotations
 
+from itertools import groupby
 from typing import List, Optional, NamedTuple, Tuple
 
 import numpy as np
 from numpy.typing import ArrayLike
+
+from utils.ops import seqiou
 
 
 BLANK_CHARACTER: int = 0
@@ -45,6 +48,12 @@ class Prediction:
         self._confidences = confidences
         self._characters = characters
 
+    def __str__(self) -> str:
+        return f"Prediction with coordinates:\n{str(self._coordinates)}"
+
+    def __repr__(self) -> str:
+        return str(self)
+
     def __iter__(
             self,
     ) -> Tuple[Coordinate | None, float, int]:
@@ -60,12 +69,37 @@ class Prediction:
         ):
             yield pred, conf, char
 
+    def compare(
+            self,
+            gt_coordinates: List[Coordinate] | ArrayLike,
+    ) -> float:
+        """Compute the mAP of the prediction against the ground truth.
+
+        :param gt_coordinates: A list of coordinates or an array of shape
+        n_points x 2 where each point has the starting and ending coordinate
+        of a character.
+        :returns: The IoU Array of all bounding boxes in the prediction
+        against all bounding boxes in the ground truth.
+        """
+        if isinstance(gt_coordinates, list):
+            gt_coordinates = np.array(gt_coordinates)
+
+        assert len(gt_coordinates.shape) == 2 and gt_coordinates.shape[1] == 2, \
+            "Invalid shape for coordinate comparison"
+
+        pred_coordinates = np.array(self._coordinates)
+
+        return seqiou(pred_coordinates, gt_coordinates)
+
+    def get_sequence(self) -> List[int]:
+        return self._characters
+
     @staticmethod
     def from_ctc_decoding(
             char_indices: ArrayLike,
             gt_sequence: ArrayLike,
             ctc_matrix: ArrayLike,
-            column_size: int,
+            column_size: float,
     ) -> Prediction:
         """Create Prediction from the output of a PrefixTree CTC decoding.
 
@@ -91,29 +125,30 @@ class Prediction:
                 continue
             if current_char is None:
                 current_char = char_index
-                start_coordinate = ind * column_size
+                start_coordinate = int(ind * column_size)
+                partial_confidences.append(ctc_matrix[ind, gt_sequence[char_index]])
             else:
                 # If a different char is found, save the previous one and reset
                 if current_char != char_index:
                     characters.append(gt_sequence[current_char])
                     coordinates.append(
-                        Coordinate(start_coordinate, ind * column_size)
+                        Coordinate(start_coordinate, int(ind * column_size))
                     )
                     confidences.append(np.array(partial_confidences).mean())
 
                     current_char = char_index
-                    start_coordinate = ind * column_size
-                    partial_confidences = []
+                    start_coordinate = int(ind * column_size)
+                    partial_confidences = [ctc_matrix[ind, gt_sequence[char_index]]]
 
                 # Otherwise keep accumulating confidences
                 else:
                     partial_confidences.append(
                         ctc_matrix[ind, gt_sequence[char_index]]
                     )
-        if current_char is not None:
+        if current_char is not None and start_coordinate != int(ind * column_size):
             characters.append(gt_sequence[current_char])
             coordinates.append(
-                Coordinate(start_coordinate, len(ctc_matrix) * column_size)
+                Coordinate(start_coordinate, int(len(ctc_matrix) * column_size))
             )
             confidences.append(np.array(partial_confidences).mean())
 
@@ -183,6 +218,12 @@ class PrefixNode:
         self._confidence = confidence
         self._children = []
 
+    def __str__(self) -> str:
+        return f"Prefix Node: index {self._char_index} conf {self._confidence}"
+
+    def repr(self) -> str:
+        return str(self)
+
     @property
     def character(
             self
@@ -236,11 +277,11 @@ class PrefixNode:
         :param character: Character pertaining to the current node.
         :param char_index: Index of the position of the character in the output
         string.
-        :param confidence: Confidence value of the current node addition.
+        :param confidence: Log confidence value of the current node addition.
 
         :returns: Produced node added as child to the current one.
         """
-        cumulative_confidence = self._confidence + np.log(confidence)
+        cumulative_confidence = self._confidence + confidence
 
         node = PrefixNode(character, char_index, self, cumulative_confidence)
         self._children.append(node)
@@ -264,7 +305,7 @@ class PrefixNode:
             node = node._parent
 
         decoding.reverse()
-        return np.array(decoding)
+        return np.array(decoding[1:])
 
 
 # TODO Implement this but using a dynamic programming algorithm (I *think* it
@@ -288,12 +329,18 @@ class PrefixTree:
         :param beam_width: Number of decoded sequences to keep at a time step.
         """
         if root_character is None:
-            root_character = PrefixNode(BLANK_CHARACTER, FIRST_ELEMENT, 0.0)
+            root_character = PrefixNode(BLANK_CHARACTER, FIRST_ELEMENT, None, 1.0)
 
         self._root_character = root_character
         self._output_sequence = output_sequence
         self._beams: List[PrefixNode] = [self._root_character]
         self._beam_width = beam_width
+
+    def __str__(self) -> str:
+        return f"Prefix tree with <={self._beam_width} beams:" + str([str(x) for x in self._beams])
+
+    def __repr__(self) -> str:
+        return str(self)
 
     def decode(
             self,
@@ -318,7 +365,7 @@ class PrefixTree:
 
                     # Add same character as current node into the expansion
                     level_nodes.append(node.expand(
-                        self.output_sequence[char_index],
+                        self._output_sequence[char_index],
                         char_index,
                         column[character],
                     ))
@@ -330,18 +377,18 @@ class PrefixTree:
                     column[BLANK_CHARACTER],
                 ))
 
-                if char_index < len(self._output_sequence):
+                if char_index < len(self._output_sequence) - 1:
                     # Add next character
                     level_nodes.append(node.expand(
-                        self.output_sequence[char_index + 1],
+                        self._output_sequence[char_index + 1],
                         char_index + 1,
-                        column[self.output_sequence[char_index + 1]],
+                        column[self._output_sequence[char_index + 1]],
                     ))
 
             level_nodes.sort(key=lambda x: x.confidence, reverse=True)
 
             if self._beam_width > 0:
-                level_nodes[:self._beam_width]
+                level_nodes = level_nodes[:self._beam_width]
 
             self._beams = level_nodes
 
@@ -351,8 +398,9 @@ class PrefixTree:
 def decode_ctc(
     ctc_mat: ArrayLike,
     out_seq: ArrayLike,
+    column_size: ArrayLike,
     beam_width: int = MAX_WIDTH,
-) -> ArrayLike:
+) -> List[Prediction]:
     """Produce the most likely decoding of out_seq.
 
     Iterate over all possible transcriptions of each batch in a ctc model
@@ -360,20 +408,27 @@ def decode_ctc(
 
     :param ctc_mat: (sequence length, batch size, class confidence) matrix
     produced by a model.
-    :param out_seq: (batch size, sequence length) array with numbers as
+    :param out_seq: (batch size, sequence length) list with number arrays as
     elements in the sequence (zero is strictly reserved for the blank symbol).
     """
     outputs = []
     ctc_mat = ctc_mat.transpose((1, 0, 2))
-    batch_size, seqlen, classes = ctc_mat.target_shape
+    batch_size, seqlen, classes = ctc_mat.shape
 
-    for mat, transcript in zip(ctc_mat, out_seq):
+    for mat, transcript, csize in zip(ctc_mat, out_seq, column_size):
         tree = PrefixTree(
             None,
             transcript,
             beam_width
         )
-        outputs.append(tree.decode())
+        decoding = tree.decode(mat)
+        prediction = Prediction.from_ctc_decoding(
+            decoding,
+            transcript,
+            mat,
+            csize,
+        )
+        outputs.append(prediction)
     return outputs
 
 
@@ -381,17 +436,13 @@ def decode_ctc_greedy(ctc_matrix: ArrayLike) -> List[int]:
     """Decode a CTC output matrix greedily and produce a sequence list.
 
     :param ctc_matrix: An output matrix from a CTC-like model. Should have
-    shape S x C, where S is the sequence length and C is the number of classes.
+    shape S x B x C, where S is the sequence length, B is the batch size and C
+    is the number of classes.
     :returns: A list containing the decoded sequence.
     """
-    maximum = ctc_matrix.argmax(axis=-1)
-    last_char = BLANK_CHARACTER
+    ctc_matrix = ctc_matrix.permute((1, 0, 2))
     output = []
-    for char in maximum:
-        if char != BLANK_CHARACTER:
-            if last_char == BLANK_CHARACTER or last_char != char:
-                output.append(char)
-                last_char = char
-        else:
-            last_char = BLANK_CHARACTER
+    for sample in ctc_matrix:
+        maximum = sample.argmax(axis=-1)
+        output.append(np.array([k for k, g in groupby(maximum) if k != 0]))
     return output
