@@ -590,7 +590,7 @@ class Experiment:
 
         table.to_json(str(self.save_path / self.json_name(split, epoch)))
 
-        return table["SER"].mean()
+        return table["ser"].mean()
 
     def save_current_weights(self, epoch: int) -> None:
         curr_name = self.curr_name(epoch)
