@@ -523,7 +523,7 @@ class Experiment:
             if cfg.train.log_images is not None and ii < cfg.train.log_images:
                 display_prediction(
                     fname,
-                    pred.get_coords(),
+                    pred.get_coords().tolist(),
                     gt,
                     img_output_path / self.image_name(Path(fname).stem, epoch)
                 )

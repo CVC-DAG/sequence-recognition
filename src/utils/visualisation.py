@@ -82,5 +82,5 @@ def display_prediction(
             color=colors[ii],
             linewidth=1,
         )
-    plt.savefig(output, bbox_inches='tight', dpi=300)
-    plt.close()
+    fig.savefig(output, bbox_inches='tight', dpi=300)
+    fig.close()

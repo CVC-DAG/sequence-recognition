@@ -33,9 +33,9 @@ class Prediction:
 
     def __init__(
             self,
-            coordinates: List[Coordinate | None],
-            confidences: List[float],
-            characters: List[int],
+            coordinates: ArrayLike,
+            confidences: ArrayLike,
+            characters: ArrayLike,
     ) -> None:
         """Create a Prediction object.
 
@@ -87,7 +87,7 @@ class Prediction:
         assert len(gt_coordinates.shape) == 2 and gt_coordinates.shape[1] == 2, \
             "Invalid shape for coordinate comparison"
 
-        pred_coordinates = np.array(self._coordinates)
+        pred_coordinates = self._coordinates
 
         return seqiou(pred_coordinates, gt_coordinates)
 
