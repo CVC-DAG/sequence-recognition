@@ -82,7 +82,6 @@ class ModelConfig(BaseModel):
     decode_beams: int
 
 
-
 class DirectoryConfig(BaseModel):
     results_dir: str
     base_data_dir: str
@@ -112,7 +111,7 @@ def load_configuration(config_path: str, test: bool) -> Config:
     path = Path(config_path)
     with open(path, "r") as f_config:
         cfg = json.load(f_config)
-        cfg["exp_name"] = path.stem + "_test" if test else ""
+        cfg["exp_name"] = path.stem + ("_test" if test else "")
     cfg = Config(**cfg)
 
     return cfg
