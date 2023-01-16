@@ -533,7 +533,7 @@ class Experiment:
                 global_iou += iou.sum()
                 global_predictions += len(iou)
                 mean_iou = iou.mean()
-                runn_avg = moving_average(iou, 5) if len(iou) > 5 else np.nan
+                runn_avg = moving_average(iou, 5)[-1] if len(iou) > 5 else np.nan
                 std_iou = iou.std()
                 hit25 = np.sum(iou >= 0.25) / len(iou)
                 hit50 = np.sum(iou >= 0.50) / len(iou)
