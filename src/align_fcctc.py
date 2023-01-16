@@ -581,8 +581,8 @@ class Experiment:
             {
                 "epoch": epoch,
                 f"{split}_loss": loss,
-                f"{split}_SER_mean": table["SER"].mean(),
-                f"{split}_SER_std": table["SER"].std(),
+                f"{split}_SER_mean": table["ser"].mean(),
+                f"{split}_SER_std": table["ser"].std(),
                 f"{split}_sequences": table.head(25),
             },
             step=self.train_iters,
