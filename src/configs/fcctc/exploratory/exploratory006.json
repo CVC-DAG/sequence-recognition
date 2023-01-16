@@ -14,7 +14,7 @@
         "learning_rate": 0.00025502811088568884,
         "optimizer": "adamw",
         "save_every": 1,
-        "eval_every": 1,
+        "eval_every": 10,
         "weight_decay": 0.00013595882344299908,
         "workers": 8,
         "plateau_sched": false,

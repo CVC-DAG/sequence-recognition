@@ -411,7 +411,7 @@ class PrefixTree:
                 char_index = node._char_index
                 character = node._character
 
-                if not character == BLANK_CHARACTER:
+                if not (character == BLANK_CHARACTER or character == -1):
 
                     # Add same character as current node into the expansion
                     alive_nodes.append(node.expand(

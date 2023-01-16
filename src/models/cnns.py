@@ -2,7 +2,25 @@
 
 import torch
 from torch import nn
-from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
+from torchvision.models import (
+    resnet18,
+    resnet34,
+    resnet50,
+    resnet101,
+    resnet152
+)
+
+from torchvision.models import (
+    vgg11,
+    vgg11_bn,
+    vgg13,
+    vgg13_bn,
+    vgg16,
+    vgg16_bn,
+    vgg19,
+    vgg19_bn
+)
+
 from warnings import warn
 
 from typing import Callable
@@ -16,12 +34,35 @@ RESNETS = {
     152: resnet152,
 }
 
+RESNET_EMBEDDING_SIZES = {
+    18: 512,
+    34: 512,
+    50: 2048,
+    101: 2048,
+    152: 2048
+}
+
+VGGS = {
+    11: vgg11,
+    13: vgg13,
+    16: vgg16,
+    19: vgg19,
+}
+
+VGGS_BN = {
+    11: vgg11_bn,
+    13: vgg13_bn,
+    16: vgg16_bn,
+    19: vgg19_bn,
+}
+
 
 def create_resnet(
     resnet_type: int,
     headless: bool = True,
     pretrained: bool = True
 ) -> nn.Module:
+    """Generate a ResNet from TorchVision given the ResNet type as integer."""
     resnet = RESNETS[resnet_type]
     resnet = resnet(pretrained=pretrained)
 
@@ -30,16 +71,26 @@ def create_resnet(
     return resnet
 
 
+def create_vgg(
+    vgg_type: int,
+    batchnorm: bool = True,
+    headless: bool = True,
+    pretrained: bool = True
+) -> nn.Module:
+    """Generate a VGG from TorchVision given the VGG type as integer."""
+    vgg_dict = VGGS_BN if batchnorm else VGGS
+
+    vgg = vgg_dict[vgg_type]
+    vgg = vgg(pretrained=pretrained)
+
+    if headless:
+        vgg = nn.Sequential(*list(vgg.children())[:-2])
+
+    return vgg
+
+
 class FullyConvCTC(nn.Module):
     """A fully convolutional CTC model with convolutional upsampling."""
-
-    LAYER_DEPTHS = {
-        18: 512,
-        34: 512,
-        50: 2048,
-        101: 2048,
-        152: 2048
-    }
 
     def __init__(
         self,
@@ -56,7 +107,7 @@ class FullyConvCTC(nn.Module):
         self._pooling = nn.AdaptiveAvgPool2d((1, 32))
 
         self._upsample = nn.ConvTranspose2d(
-            in_channels=self.LAYER_DEPTHS[resnet_type],
+            in_channels=RESNET_EMBEDDING_SIZES[resnet_type],
             out_channels=intermediate_units,
             kernel_size=(1, kern_upsampling),
             stride=(1, width_upsampling),

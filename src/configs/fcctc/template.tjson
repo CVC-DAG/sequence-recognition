@@ -14,7 +14,7 @@
         "learning_rate": range [1e-5, 1e-3],
         "optimizer": "adamw",
         "save_every": 1,
-        "eval_every": 1,
+        "eval_every": 10,
         "weight_decay": logrange [1e-7, 1e-1],
         "workers": 8,
 
@@ -43,7 +43,7 @@
         "sequence_length": 128,
         "target_shape": anyof [[512, 64], [1024, 64]],
         "output_upsampling": anyof [7, 8, 9],
-        "decode_beams": 30
+        "decode_beams": 10
     },
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",

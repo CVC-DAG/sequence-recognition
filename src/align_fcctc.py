@@ -316,7 +316,7 @@ class Experiment:
         self.model = self.model.to(self.device)
 
         self.train_iters = 0
-        self.best_ser = 99999999
+        self.best_iou = 0.0
         self.best_epoch = -1
 
         self.best_name = f"weights_exp_{self.cfg.exp_name}_run_{self.run_name}_BEST.pth"
@@ -423,10 +423,10 @@ class Experiment:
                 self.save_current_weights(epoch)
 
             if not epoch % self.cfg.train.eval_every:
-                val_loss, val_ser = self.validate(epoch, self.data_valid)
+                val_loss, val_iou = self.validate(epoch, self.data_valid)
 
-                if val_ser < self.best_ser:
-                    self.best_ser = val_ser
+                if val_iou > self.best_iou:
+                    self.best_iou = val_iou
                     self.best_epoch = epoch
 
                     self.model.save_weights(str(self.save_path / self.best_name))
@@ -434,7 +434,7 @@ class Experiment:
                 # _ = self.test(epoch)
 
                 if self.sched_plateau:
-                    self.sched_plateau.step(val_ser)
+                    self.sched_plateau.step(val_iou)
 
     def validate(
         self,
@@ -488,7 +488,7 @@ class Experiment:
                 gt_coordinates += [x[:length]
                                    for x, length in zip(segm, sample.og_len)]
 
-            ser = self.log_validation(
+            iou = self.log_validation(
                 mode,
                 predictions,
                 gt_coordinates,
@@ -497,7 +497,7 @@ class Experiment:
                 epoch,
             )
 
-            return total_loss / len(dataset), ser
+            return total_loss / len(dataset), iou
 
     def test(self) -> None:
         self.validate(0, self.data_test, "test")
@@ -511,6 +511,9 @@ class Experiment:
         loss: float,
         epoch: int,
     ) -> float:
+
+        global_iou = 0.0
+        global_predictions = 0
         if cfg.train.log_images is not None:
             img_output_path = self.save_path / f"demo_epoch{epoch}"
             img_output_path.mkdir(exist_ok=True, parents=False)
@@ -527,6 +530,8 @@ class Experiment:
 
             iou = pred.compare(gt)
             if len(iou):
+                global_iou += iou.sum()
+                global_predictions += len(iou)
                 mean_iou = iou.mean()
                 runn_avg = moving_average(iou, 5) if len(iou) > 5 else np.nan
                 std_iou = iou.std()
@@ -549,6 +554,7 @@ class Experiment:
         )
         wandb.log(
             {
+                f"{split}_iou": global_iou / global_predictions,
                 f"{split}_sample": table.head(cfg.train.log_images),
                 f"{split}_loss": loss,
             },
@@ -557,6 +563,8 @@ class Experiment:
 
         table.to_json(str(self.save_path / self.json_name(split, epoch)))
         table.to_csv(str(self.save_path / self.csv_name(split, epoch)))
+
+        return global_iou / global_predictions
 
     def log_results(
         self,
