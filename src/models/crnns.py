@@ -11,14 +11,21 @@ from cnns import create_resnet
 
 class RecurrentCTC(nn.Module):
     def __init__(
-            self,
-            resnet_type: int,
-            lstm_layers: int,
-            lstm_input_size: int,
-            lstm_hidden_size: int,
-            blstm: bool,
-            dropout: float,
-            output_classes: int,
+        self,
+    ) -> None:
+        ...
+
+
+class RecurrentCTCResnet(nn.Module):
+    def __init__(
+        self,
+        resnet_type: int,
+        lstm_layers: int,
+        lstm_input_size: int,
+        lstm_hidden_size: int,
+        blstm: bool,
+        dropout: float,
+        output_classes: int,
     ) -> None:
         self.backbone = create_resnet(resnet_type, headless=True)
         self.lstm = nn.LSTM(
@@ -26,18 +33,12 @@ class RecurrentCTC(nn.Module):
             hidden_size=lstm_hidden_size,
             num_layers=lstm_layers,
             bidirectional=blstm,
-            dropout=dropout
+            dropout=dropout,
         )
-        self.output_layer = nn.Linear(
-            lstm_hidden_size,
-            output_classes
-        )
+        self.output_layer = nn.Linear(lstm_hidden_size, output_classes)
         self.log_softmax = nn.LogSoftmax(dim=-1)
 
-    def forward(
-            self,
-            x: TensorType
-    ) -> TensorType:
+    def forward(self, x: TensorType) -> TensorType:
         raise NotImplementedError
 
     def load_weights(self, wpath: str) -> None:
@@ -51,7 +52,4 @@ class RecurrentCTC(nn.Module):
 
     def save_weights(self, path: str) -> None:
         state_dict = self.state_dict()
-        torch.save(
-            state_dict,
-            path
-        )
+        torch.save(state_dict, path)

@@ -541,7 +541,7 @@ class Experiment:
                 misses = np.sum(iou == 0) / len(iou)
                 results.append([
                     fname, mean_iou, runn_avg, std_iou, hit25, hit50, hit75,
-                    misses, pred.get_coords(), gt.tolist()
+                    misses, pred.get_coords().tolist(), gt.tolist()
                 ])
             else:
                 results.append([

@@ -193,7 +193,7 @@ def create_datasets(
             T.GaussianBlur(3),
             T.RandomEqualize(),
             T.RandomPerspective(),
-        ]
+        ],
     }
 
     train_augs = AUGMENTATIONS[cfg.train.augmentation]
@@ -204,7 +204,12 @@ def create_datasets(
     train_dataset, valid_dataset, test_dataset = [
         D.DataLoader(
             GenericDecryptDataset(
-                img_path, data_file, vocab, cfg.model.sequence_length, cfg.model.target_shape, aug
+                img_path,
+                data_file,
+                vocab,
+                cfg.model.sequence_length,
+                cfg.model.target_shape,
+                aug,
             ),
             batch_size=cfg.train.batch_size,
             shuffle=True if not ii else False,
@@ -377,8 +382,13 @@ class Experiment:
                 output = output.detach().cpu().numpy()
                 pred_sequences = [decode_ctc_greedy(x) for x in output]
 
-                sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences]
-                gt_sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
+                sequences += [
+                    self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences
+                ]
+                gt_sequences += [
+                    self.vocab.decode(self.vocab.unpad(x))
+                    for x in sample.gt.detach().cpu().numpy()
+                ]
 
                 fnames += sample.filename
 
@@ -443,8 +453,13 @@ class Experiment:
                 output = output.detach().cpu().numpy()
                 pred_sequences = [decode_ctc_greedy(x) for x in output]
 
-                sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences]
-                gt_sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
+                sequences += [
+                    self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences
+                ]
+                gt_sequences += [
+                    self.vocab.decode(self.vocab.unpad(x))
+                    for x in sample.gt.detach().cpu().numpy()
+                ]
 
                 fnames += sample.filename
 

@@ -95,7 +95,7 @@ class Prediction:
         """Return the underlying sequence of character in encoded format."""
         return self._characters
 
-    def get_coords(self) -> List[Coordinate]:
+    def get_coords(self) -> ArrayLike:
         """Return the predicted pixel coordinates."""
         return self._coordinates
 
