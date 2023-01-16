@@ -90,7 +90,7 @@ class FullyConvCTC(nn.Module):
         super().__init__()
 
         self._backbone = create_resnet(resnet_type, pretrained=pretrained)
-        self._pooling = nn.AdaptiveAvgPool2d((1, 32))
+        self._pooling = nn.AdaptiveAvgPool2d((1, None))
 
         self._upsample = nn.ConvTranspose2d(
             in_channels=RESNET_EMBEDDING_SIZES[resnet_type],
@@ -187,6 +187,7 @@ class CustomCNN(nn.Module):
 
         # Max Pool 4
         self.maxpool4 = nn.MaxPool2d(kernel_size=(1, 2), return_indices=True)
+        self.avg_pool = nn.AvgPool2d((1, None))
 
     def forward(self, x):
         x = x.view(x.size(0), 1, x.size(1), x.size(2))
@@ -208,7 +209,7 @@ class CustomCNN(nn.Module):
         out = self.conv4(out)
         out = self.swish4(out)
         out = self.conv2_bn4(out)
-        # out,indices4=self.maxpool4(out)
+        out, indices4 = self.maxpool4(out)
 
         if self.training:
             out = nn.functional.dropout(out, 0.5)
