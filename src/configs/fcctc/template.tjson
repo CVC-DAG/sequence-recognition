@@ -6,7 +6,7 @@
     "wandb_mode": "online",
     "train": {
         "augmentation": 1,
-        "batch_size": anyof [32, 64, 128],
+        "batch_size": anyof [32, 64],
         "checkpoint": null,
         "device": "cuda",
         "grad_clip": anyof [null, 1.0],
@@ -31,7 +31,9 @@
         "cosann_sched": false,
         "cosann_t0": 3e-4,
         "cosann_factor": 1e-1,
-        "cosann_min": 1e-5 
+        "cosann_min": 1e-5,
+
+        "log_images": 25
     },
     "model": {
         "kern_upsampling": anyof [1, 3, 7, 11],
@@ -41,7 +43,7 @@
         "sequence_length": 128,
         "target_shape": anyof [[512, 64], [1024, 64]],
         "output_upsampling": anyof [7, 8, 9],
-        "decode_beams": 10
+        "decode_beams": 30
     },
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",

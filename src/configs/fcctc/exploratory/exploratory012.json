@@ -6,33 +6,34 @@
     "wandb_mode": "online",
     "train": {
         "augmentation": 1,
-        "batch_size": 128,
+        "batch_size": 32,
         "checkpoint": null,
         "device": "cuda",
         "grad_clip": 1.0,
         "max_epochs": 10,
-        "learning_rate": 3.213190394457875e-05,
+        "learning_rate": 0.00025726751579457745,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 1,
-        "weight_decay": 0.0014428351208291815,
+        "weight_decay": 4.60985518630446e-05,
         "workers": 8,
         "plateau_sched": false,
         "plateau_factor": 0.1,
         "plateau_iters": 5,
         "plateau_thresh": 0.01,
         "plateau_min": 1e-07,
-        "warmup_sched": false,
+        "warmup_sched": true,
         "warmup_factor": 0.1,
         "warmup_iters": 5000,
         "cosann_sched": false,
         "cosann_t0": 0.0003,
         "cosann_factor": 0.1,
-        "cosann_min": 1e-05
+        "cosann_min": 1e-05,
+        "log_images": 25
     },
     "model": {
-        "kern_upsampling": 7,
-        "intermediate_units": 256,
+        "kern_upsampling": 11,
+        "intermediate_units": 1024,
         "pretrained": true,
         "resnet": 50,
         "sequence_length": 128,
@@ -40,7 +41,8 @@
             512,
             64
         ],
-        "output_upsampling": 8
+        "output_upsampling": 7,
+        "decode_beams": 30
     },
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",

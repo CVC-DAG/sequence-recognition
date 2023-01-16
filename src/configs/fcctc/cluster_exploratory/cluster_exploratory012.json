@@ -6,16 +6,16 @@
     "wandb_mode": "online",
     "train": {
         "augmentation": 1,
-        "batch_size": 128,
+        "batch_size": 64,
         "checkpoint": null,
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 5,
-        "learning_rate": 0.00038477807077703073,
+        "learning_rate": 0.00024502263475474634,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 1,
-        "weight_decay": 0.0012245664286836618,
+        "weight_decay": 0.04158782627047675,
         "workers": 8,
         "plateau_sched": false,
         "plateau_factor": 0.1,
@@ -28,10 +28,11 @@
         "cosann_sched": false,
         "cosann_t0": 0.0003,
         "cosann_factor": 0.1,
-        "cosann_min": 1e-05
+        "cosann_min": 1e-05,
+        "log_images": 25
     },
     "model": {
-        "kern_upsampling": 11,
+        "kern_upsampling": 7,
         "intermediate_units": 512,
         "pretrained": true,
         "resnet": 50,
@@ -40,7 +41,8 @@
             1024,
             128
         ],
-        "output_upsampling": 9
+        "output_upsampling": 7,
+        "decode_beams": 30
     },
     "dirs": {
         "results_dir": "/data2/users/ptorras/decrypt/results",

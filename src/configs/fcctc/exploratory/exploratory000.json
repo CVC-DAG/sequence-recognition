@@ -11,11 +11,11 @@
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 10,
-        "learning_rate": 0.0008932589787982708,
+        "learning_rate": 0.0007303014400689765,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 1,
-        "weight_decay": 5.919641907466614e-07,
+        "weight_decay": 0.0009119805528737389,
         "workers": 8,
         "plateau_sched": false,
         "plateau_factor": 0.1,
@@ -28,19 +28,21 @@
         "cosann_sched": false,
         "cosann_t0": 0.0003,
         "cosann_factor": 0.1,
-        "cosann_min": 1e-05
+        "cosann_min": 1e-05,
+        "log_images": 25
     },
     "model": {
-        "kern_upsampling": 11,
-        "intermediate_units": 256,
+        "kern_upsampling": 1,
+        "intermediate_units": 1024,
         "pretrained": true,
-        "resnet": 101,
+        "resnet": 50,
         "sequence_length": 128,
         "target_shape": [
             512,
             64
         ],
-        "output_upsampling": 8
+        "output_upsampling": 7,
+        "decode_beams": 30
     },
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",

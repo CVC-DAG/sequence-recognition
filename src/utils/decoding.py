@@ -477,7 +477,7 @@ def decode_ctc(
     return outputs
 
 
-def decode_ctc_greedy(ctc_matrix: ArrayLike) -> List[int]:
+def decode_ctc_greedy(ctc_matrix: ArrayLike) -> List[ArrayLike]:
     """Decode a CTC output matrix greedily and produce a sequence list.
 
     :param ctc_matrix: An output matrix from a CTC-like model. Should have
@@ -485,7 +485,7 @@ def decode_ctc_greedy(ctc_matrix: ArrayLike) -> List[int]:
     is the number of classes.
     :returns: A list containing the decoded sequence.
     """
-    ctc_matrix = ctc_matrix.permute((1, 0, 2))
+    ctc_matrix = ctc_matrix.transpose((1, 0, 2))
     output = []
     for sample in ctc_matrix:
         maximum = sample.argmax(axis=-1)

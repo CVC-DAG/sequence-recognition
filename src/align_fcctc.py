@@ -36,6 +36,7 @@ from utils.augmentations import (
 )
 from utils.ops import levenshtein, moving_average
 from utils.decoding import Prediction, decode_ctc_greedy, decode_ctc
+from utils.visualisation import display_prediction
 
 
 class TrainConfig(BaseModel):
@@ -67,6 +68,8 @@ class TrainConfig(BaseModel):
     cosann_factor: int  # Factor by which to increase the number of iters until restart
     cosann_min: float  # Min learning rate
 
+    log_images: int  # Number of images to log during validation
+
 
 class ModelConfig(BaseModel):
     kern_upsampling: int
@@ -77,6 +80,7 @@ class ModelConfig(BaseModel):
     target_shape: Tuple[int, int]  # Width, Height
     output_upsampling: int
     decode_beams: int
+
 
 
 class DirectoryConfig(BaseModel):
@@ -328,6 +332,9 @@ class Experiment:
         self.csv_name = (
             lambda split, epoch: f"{split}_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch:05d}.csv"
         )
+        self.image_name = (
+            lambda fname, epoch: f"demo_run_{self.run_name}_{fname}_e{epoch:05d}.png"
+        )
 
         self.iou_thresholds = [.25, .50, .75]
 
@@ -397,7 +404,7 @@ class Experiment:
                 )
 
                 output = output.detach().cpu().numpy()
-                pred_sequences = [decode_ctc_greedy(x) for x in output]
+                pred_sequences = decode_ctc_greedy(output)
 
                 sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences]
                 gt_sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
@@ -505,19 +512,32 @@ class Experiment:
         loss: float,
         epoch: int,
     ) -> float:
+        if cfg.train.log_images is not None:
+            img_output_path = self.save_path / f"demo_epoch{epoch}"
+            img_output_path.mkdir(exist_ok=True, parents=False)
+
         results = []
-        for pred, gt, fname in zip(pred_coords, gt_coords, fnames):
+        for ii, (pred, gt, fname) in enumerate(zip(pred_coords, gt_coords, fnames)):
+            if cfg.train.log_images is not None and ii < cfg.train.log_images:
+                display_prediction(
+                    fname,
+                    pred.get_coords(),
+                    gt,
+                    img_output_path / self.image_name(Path(fname).stem, epoch)
+                )
+
             iou = pred.compare(gt)
             if len(iou):
                 mean_iou = iou.mean()
-                runn_avg = moving_average(iou, 5) if len(iou)> 5 else np.nan
+                runn_avg = moving_average(iou, 5) if len(iou) > 5 else np.nan
                 std_iou = iou.std()
                 hit25 = np.sum(iou >= 0.25) / len(iou)
                 hit50 = np.sum(iou >= 0.50) / len(iou)
                 hit75 = np.sum(iou >= 0.75) / len(iou)
                 misses = np.sum(iou == 0) / len(iou)
                 results.append([
-                    fname, mean_iou, runn_avg, std_iou, hit25, hit50, hit75, misses, pred.get_coords(), gt.tolist()
+                    fname, mean_iou, runn_avg, std_iou, hit25, hit50, hit75,
+                    misses, pred.get_coords(), gt.tolist()
                 ])
             else:
                 results.append([
@@ -530,7 +550,7 @@ class Experiment:
         )
         wandb.log(
             {
-                f"{split}_sample": table.head(25),
+                f"{split}_sample": table.head(cfg.train.log_images),
                 f"{split}_loss": loss,
             },
             step=self.train_iters,
@@ -548,6 +568,7 @@ class Experiment:
         loss: float,
         epoch: int,
     ) -> float:
+
         results = [
             [" ".join(x), " ".join(y), levenshtein(x, y)[0], epoch, z]
             for x, y, z in zip(sequences, gt_sequences, fnames)
