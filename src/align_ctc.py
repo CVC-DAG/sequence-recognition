@@ -1,4 +1,7 @@
+"""Alignment using a fully convolutional CTC model."""
+
 import json
+import numpy as np
 import pandas as pd
 import torch
 import torch.utils.data as D
@@ -14,6 +17,7 @@ from data.generic_decrypt import (
 from models.cnns import FullyConvCTC
 from pathlib import Path
 from pydantic import BaseModel
+from shutil import copyfile
 from torchinfo import summary
 from torch import nn
 from torch import optim
@@ -31,8 +35,9 @@ from utils.augmentations import (
     ToFloat,
     ToNumpy,
 )
-from utils.ops import levenshtein
-from utils.decoding import decode_ctc_greedy, decode_ctc
+from utils.ops import levenshtein, moving_average
+from utils.decoding import Prediction, decode_ctc_greedy, decode_ctc
+from utils.visualisation import display_prediction
 
 
 class TrainConfig(BaseModel):
@@ -64,6 +69,8 @@ class TrainConfig(BaseModel):
     cosann_factor: int  # Factor by which to increase the number of iters until restart
     cosann_min: float  # Min learning rate
 
+    log_images: int  # Number of images to log during validation
+
 
 class ModelConfig(BaseModel):
     kern_upsampling: int
@@ -73,6 +80,7 @@ class ModelConfig(BaseModel):
     sequence_length: int
     target_shape: Tuple[int, int]  # Width, Height
     output_upsampling: int
+    decode_beams: int
 
 
 class DirectoryConfig(BaseModel):
@@ -100,11 +108,11 @@ class Config(BaseModel):
     dirs: DirectoryConfig
 
 
-def load_configuration(config_path: str) -> Config:
+def load_configuration(config_path: str, test: bool) -> Config:
     path = Path(config_path)
     with open(path, "r") as f_config:
         cfg = json.load(f_config)
-        cfg["exp_name"] = path.stem
+        cfg["exp_name"] = path.stem + ("_test" if test else "")
     cfg = Config(**cfg)
 
     return cfg
@@ -163,7 +171,7 @@ def setup() -> Config:
     )
 
     args = parser.parse_args()
-    cfg = load_configuration(args.config_path)
+    cfg = load_configuration(args.config_path, args.test is not None)
     cfg = setup_dirs(cfg)
 
     wandb.init(
@@ -174,7 +182,14 @@ def setup() -> Config:
         save_code=True,
     )
 
-    return cfg
+    if wandb.run.name:
+        fname = f"{wandb.run.name}.json"
+    else:
+        fname = "unknown_run.json"
+
+    copyfile(args.config_path, Path(cfg.dirs.results_dir) / fname)
+
+    return cfg, args.test
 
 
 def create_datasets(
@@ -192,8 +207,8 @@ def create_datasets(
         1: [
             T.GaussianBlur(3),
             T.RandomEqualize(),
-            T.RandomPerspective(),
-        ],
+            T.RandomPerspective(fill=255),
+        ]
     }
 
     train_augs = AUGMENTATIONS[cfg.train.augmentation]
@@ -204,12 +219,7 @@ def create_datasets(
     train_dataset, valid_dataset, test_dataset = [
         D.DataLoader(
             GenericDecryptDataset(
-                img_path,
-                data_file,
-                vocab,
-                cfg.model.sequence_length,
-                cfg.model.target_shape,
-                aug,
+                img_path, data_file, vocab, cfg.model.sequence_length, cfg.model.target_shape, aug
             ),
             batch_size=cfg.train.batch_size,
             shuffle=True if not ii else False,
@@ -306,7 +316,7 @@ class Experiment:
         self.model = self.model.to(self.device)
 
         self.train_iters = 0
-        self.best_ser = 99999999
+        self.best_iou = 0.0
         self.best_epoch = -1
 
         self.best_name = f"weights_exp_{self.cfg.exp_name}_run_{self.run_name}_BEST.pth"
@@ -318,6 +328,14 @@ class Experiment:
         self.json_name = (
             lambda split, epoch: f"{split}_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch:05d}.json"
         )
+        self.csv_name = (
+            lambda split, epoch: f"{split}_exp_{self.cfg.exp_name}_run_{self.run_name}_e{epoch:05d}.csv"
+        )
+        self.image_name = (
+            lambda fname, epoch: f"demo_run_{self.run_name}_{fname}_e{epoch:05d}.png"
+        )
+
+        self.iou_thresholds = [.25, .50, .75]
 
     def load_model_weights(self, path: str) -> None:
         """Load weights pointed by the input path to the experiment model.
@@ -348,10 +366,16 @@ class Experiment:
             for sample in tqdm(self.data_train, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
                 output = self.inference_step(sample)
+
+                columns = output.shape[0]
+                target_shape = cfg.model.target_shape[0]
+                input_lengths = sample.curr_shape[0] * (columns / target_shape)
+                input_lengths = input_lengths.numpy().astype(int).tolist()
+
                 batch_loss = self.loss_function(
                     output,
                     sample.gt.to(self.device),
-                    (output.shape[0],) * sample.gt.shape[0],
+                    input_lengths,
                     tuple(sample.og_len.tolist()),
                 )
 
@@ -378,17 +402,11 @@ class Experiment:
                     step=self.train_iters,
                 )
 
-                output = output.permute((1, 0, 2))
                 output = output.detach().cpu().numpy()
-                pred_sequences = [decode_ctc_greedy(x) for x in output]
+                pred_sequences = decode_ctc_greedy(output)
 
-                sequences += [
-                    self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences
-                ]
-                gt_sequences += [
-                    self.vocab.decode(self.vocab.unpad(x))
-                    for x in sample.gt.detach().cpu().numpy()
-                ]
+                sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences]
+                gt_sequences += [self.vocab.decode(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
 
                 fnames += sample.filename
 
@@ -405,10 +423,10 @@ class Experiment:
                 self.save_current_weights(epoch)
 
             if not epoch % self.cfg.train.eval_every:
-                val_loss, val_ser = self.validate(epoch)
+                val_loss, val_iou = self.validate(epoch, self.data_valid)
 
-                if val_ser < self.best_ser:
-                    self.best_ser = val_ser
+                if val_iou > self.best_iou:
+                    self.best_iou = val_iou
                     self.best_epoch = epoch
 
                     self.model.save_weights(str(self.save_path / self.best_name))
@@ -416,118 +434,137 @@ class Experiment:
                 # _ = self.test(epoch)
 
                 if self.sched_plateau:
-                    self.sched_plateau.step(val_ser)
+                    self.sched_plateau.step(val_iou)
 
     def validate(
         self,
         epoch: int,
+        dataset: D.DataLoader,
+        mode: str = "valid",
     ) -> Tuple[float, float]:
         self.model.eval()
         total_loss = 0.0
 
-        sequences = []
-        gt_sequences = []
         fnames = []
+        predictions = []
+        gt_coordinates = []
 
         with torch.no_grad():
             for sample in tqdm(
-                self.data_valid, desc=f"Validation for epoch {epoch} in Progress..."
+                dataset, desc=f"{mode} for epoch {epoch} in Progress..."
             ):
                 output = self.inference_step(sample)
+
+                columns = output.shape[0]
+                target_shape = cfg.model.target_shape[0]
+                curr_shape = sample.curr_shape[0]
+                og_shape = sample.og_shape[0]
+
+                input_lengths = sample.curr_shape[0] * (columns / target_shape)
+                input_lengths = input_lengths.numpy().astype(int).tolist()
+
                 batch_loss = self.loss_function(
                     output,
                     sample.gt.to(self.device),
-                    (output.shape[0],) * sample.gt.shape[0],
+                    input_lengths,
                     tuple(sample.og_len.tolist()),
                 )
                 total_loss += batch_loss
 
-                wandb.log(
-                    {
-                        "valid_loss": batch_loss,
-                    },
-                    step=self.train_iters,
-                )
-
-                output = output.permute((1, 0, 2))
                 output = output.detach().cpu().numpy()
-                pred_sequences = [decode_ctc_greedy(x) for x in output]
+                curr_gt = [np.array(self.vocab.unpad(x)) for x in sample.gt.detach().cpu().numpy()]
+                segm = sample.segm.numpy()
 
-                sequences += [
-                    self.vocab.decode(self.vocab.unpad(x)) for x in pred_sequences
-                ]
-                gt_sequences += [
-                    self.vocab.decode(self.vocab.unpad(x))
-                    for x in sample.gt.detach().cpu().numpy()
-                ]
+                widths = (target_shape / columns) * (og_shape / curr_shape)
 
-                fnames += sample.filename
-
-            ser = self.log_results(
-                "valid",
-                sequences,
-                gt_sequences,
-                fnames,
-                batch_loss,
-                epoch,
-            )
-
-            return total_loss / len(self.data_valid), ser
-
-    def test(
-        self,
-        epoch: int,
-    ) -> Tuple[float, float]:
-        self.model.eval()
-        total_loss = 0.0
-
-        sequences = []
-        gt_sequences = []
-        fnames = []
-
-        with torch.no_grad():
-            for sample in tqdm(
-                self.data_test, desc=f"Test for epoch {epoch} in Progress..."
-            ):
-                output = self.inference_step(sample)
-                batch_loss = self.loss_function(
+                predictions += decode_ctc(
                     output,
-                    sample.gt.to(self.device),
-                    torch.full(
-                        size=sample.img.shape[0],
-                        fill_value=output.shape[1],
-                        dtype=torch.long,
-                    ),
-                    sample.og_len,
+                    curr_gt,
+                    widths,
+                    cfg.model.decode_beams
                 )
-                total_loss += batch_loss
-
-                wandb.log(
-                    {
-                        "test_loss": batch_loss,
-                    },
-                    step=self.train_iters,
-                )
-
-                output = output.permute((1, 0, 2))
-                output = output.detach().cpu().numpy()
-                pred_sequences = [decode_ctc_greedy(x) for x in output]
-
-                sequences += [self.vocab.unpad(x) for x in pred_sequences]
-                gt_sequences += [self.vocab.unpad(x) for x in sample.gt]
 
                 fnames += sample.filename
+                gt_coordinates += [x[:length]
+                                   for x, length in zip(segm, sample.og_len)]
 
-            ser = self.log_results(
-                "test",
-                sequences,
-                gt_sequences,
+            iou = self.log_validation(
+                mode,
+                predictions,
+                gt_coordinates,
                 fnames,
-                batch_loss,
+                total_loss / len(dataset),
                 epoch,
             )
 
-            return total_loss / len(self.data_test), ser
+            return total_loss / len(dataset), iou
+
+    def test(self) -> None:
+        self.validate(0, self.data_test, "test")
+
+    def log_validation(
+        self,
+        split: str,
+        pred_coords: List,
+        gt_coords: List,
+        fnames: List,
+        loss: float,
+        epoch: int,
+    ) -> float:
+
+        global_iou = 0.0
+        global_predictions = 0
+        if cfg.train.log_images is not None:
+            img_output_path = self.save_path / f"demo_epoch{epoch}"
+            img_output_path.mkdir(exist_ok=True, parents=False)
+
+        results = []
+        for ii, (pred, gt, fname) in enumerate(zip(pred_coords, gt_coords, fnames)):
+            if cfg.train.log_images is not None and ii < cfg.train.log_images:
+                display_prediction(
+                    fname,
+                    pred.get_coords().tolist(),
+                    gt,
+                    img_output_path / self.image_name(Path(fname).stem, epoch)
+                )
+
+            iou = pred.compare(gt)
+            if len(iou):
+                global_iou += iou.sum()
+                global_predictions += len(iou)
+                mean_iou = iou.mean()
+                runn_avg = moving_average(iou, 5)[-1] if len(iou) > 5 else np.nan
+                std_iou = iou.std()
+                hit25 = np.sum(iou >= 0.25) / len(iou)
+                hit50 = np.sum(iou >= 0.50) / len(iou)
+                hit75 = np.sum(iou >= 0.75) / len(iou)
+                misses = np.sum(iou == 0) / len(iou)
+                results.append([
+                    fname, mean_iou, runn_avg, std_iou, hit25, hit50, hit75,
+                    misses, pred.get_coords().tolist(), gt.tolist()
+                ])
+            else:
+                results.append([
+                    fname, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, [], gt.tolist()
+                ])
+        table = pd.DataFrame(
+            results,
+            columns=["fname", "mean_iou", "run_avg", "std_iou", "hit25", "hit50", "hit75",
+                     "misses", "pred_coord", "gt_coord"]
+        )
+        wandb.log(
+            {
+                f"{split}_iou": global_iou / global_predictions,
+                f"{split}_sample": table.head(cfg.train.log_images),
+                f"{split}_loss": loss,
+            },
+            step=self.train_iters,
+        )
+
+        table.to_json(str(self.save_path / self.json_name(split, epoch)))
+        table.to_csv(str(self.save_path / self.csv_name(split, epoch)))
+
+        return global_iou / global_predictions
 
     def log_results(
         self,
@@ -538,21 +575,22 @@ class Experiment:
         loss: float,
         epoch: int,
     ) -> float:
+
         results = [
             [" ".join(x), " ".join(y), levenshtein(x, y)[0], epoch, z]
             for x, y, z in zip(sequences, gt_sequences, fnames)
         ]
         table = pd.DataFrame(
             results,
-            columns=["Text", "Ground Truth", "SER", "Epoch", "Filename"],
+            columns=["pred_seq", "gt_seq", "ser", "epoch", "fname"],
         )
 
         wandb.log(
             {
                 "epoch": epoch,
                 f"{split}_loss": loss,
-                f"{split}_SER_mean": table["SER"].mean(),
-                f"{split}_SER_std": table["SER"].std(),
+                f"{split}_SER_mean": table["ser"].mean(),
+                f"{split}_SER_std": table["ser"].std(),
                 f"{split}_sequences": table.head(25),
             },
             step=self.train_iters,
@@ -560,7 +598,7 @@ class Experiment:
 
         table.to_json(str(self.save_path / self.json_name(split, epoch)))
 
-        return table["SER"].mean()
+        return table["ser"].mean()
 
     def save_current_weights(self, epoch: int) -> None:
         curr_name = self.curr_name(epoch)
@@ -575,6 +613,12 @@ class Experiment:
 
 
 if __name__ == "__main__":
-    cfg = setup()
+    torch.multiprocessing.set_sharing_strategy('file_system')
+    cfg, test = setup()
     exp = Experiment(cfg)
-    exp.train()
+
+    if test is not None:
+        exp.load_model_weights(test)
+        exp.test()
+    else:
+        exp.train()

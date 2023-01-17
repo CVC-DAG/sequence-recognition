@@ -10,11 +10,11 @@
         "checkpoint": null,
         "device": "cuda",
         "grad_clip": anyof [null, 1.0],
-        "max_epochs": 10,
+        "max_epochs": 5,
         "learning_rate": range [1e-5, 1e-3],
         "optimizer": "adamw",
         "save_every": 1,
-        "eval_every": 10,
+        "eval_every": 5,
         "weight_decay": logrange [1e-7, 1e-1],
         "workers": 8,
 

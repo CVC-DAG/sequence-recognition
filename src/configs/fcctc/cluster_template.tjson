@@ -14,7 +14,7 @@
         "learning_rate": range [1e-5, 1e-3],
         "optimizer": "adamw",
         "save_every": 1,
-        "eval_every": 10,
+        "eval_every": 5,
         "weight_decay": logrange [1e-7, 1e-1],
         "workers": 8,
 

@@ -17,6 +17,7 @@ from data.generic_decrypt import (
 from models.cnns import FullyConvCTC
 from pathlib import Path
 from pydantic import BaseModel
+from shutil import copyfile
 from torchinfo import summary
 from torch import nn
 from torch import optim
@@ -186,8 +187,7 @@ def setup() -> Config:
     else:
         fname = "unknown_run.json"
 
-    with open(Path(cfg.dirs.results_dir) / fname, 'w') as f_backup:
-        json.dump(cfg.dict(), f_backup, indent=4)
+    copyfile(args.config_path, Path(cfg.dirs.results_dir) / fname)
 
     return cfg, args.test
 
@@ -613,6 +613,7 @@ class Experiment:
 
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_sharing_strategy('file_system')
     cfg, test = setup()
     exp = Experiment(cfg)
 
