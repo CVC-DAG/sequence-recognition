@@ -83,4 +83,4 @@ def display_prediction(
             linewidth=1,
         )
     fig.savefig(output, bbox_inches='tight', dpi=300)
-    fig.close()
+    plt.close(fig)
