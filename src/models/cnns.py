@@ -87,6 +87,17 @@ class FullyConvCTC(nn.Module):
         resnet_type: int,
         pretrained: bool = True,
     ) -> None:
+        """Initialise FullyConv model from parameters.
+
+        :param width_upsampling: Denominator for the fractional stride on the
+        upsampling step.
+        :param kern_upsampling: Kernel width to use during the upsampling step.
+        :param intermediate_units: Size of the intermediate representation
+        before the output linear layer.
+        :param output_units: Number of output classes.
+        :param resnet_type: Number describing the type of ResNet to employ.
+        :pretrained: bool: Whether to use a pretrained backbone or not.
+        """
         super().__init__()
 
         self._backbone = create_resnet(resnet_type, pretrained=pretrained)
@@ -140,10 +151,19 @@ class FullyConvCTC(nn.Module):
         torch.save(state_dict, path)
 
 
-class CustomCNN(nn.Module):
+class BaroCNN(nn.Module):
     """Based on Arnau Baró's CRNN CTC model."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        dropout: float = 0.1,
+    ) -> None:
+        """Initialise BaroCNN model.
+
+        :param dropout: Dropout to be applied to the final embedding.
+        """
+        super().__init__()
+
         # Convolution 1
         self.conv1 = nn.Conv2d(
             in_channels=3, out_channels=32, kernel_size=3, stride=1, padding=1
@@ -153,7 +173,7 @@ class CustomCNN(nn.Module):
         self.conv2_bn1 = nn.BatchNorm2d(32)
 
         # Max Pool 1
-        self.maxpool1 = nn.MaxPool2d(kernel_size=(2, 2), return_indices=True)
+        self.maxpool1 = nn.MaxPool2d(kernel_size=(2, 2))
 
         # Convolution 2
         self.conv2 = nn.Conv2d(
@@ -164,7 +184,7 @@ class CustomCNN(nn.Module):
         self.conv2_bn2 = nn.BatchNorm2d(64)
 
         # Max Pool 2
-        self.maxpool2 = nn.MaxPool2d(kernel_size=(1, 2), return_indices=True)
+        self.maxpool2 = nn.MaxPool2d(kernel_size=(2, 1))
 
         # Convolution 3
         self.conv3 = nn.Conv2d(
@@ -175,7 +195,7 @@ class CustomCNN(nn.Module):
         self.conv2_bn3 = nn.BatchNorm2d(128)
 
         # Max Pool 3
-        self.maxpool3 = nn.MaxPool2d(kernel_size=(1, 2), return_indices=True)
+        self.maxpool3 = nn.MaxPool2d(kernel_size=(2, 1))
 
         # Convolution 4
         self.conv4 = nn.Conv2d(
@@ -186,32 +206,35 @@ class CustomCNN(nn.Module):
         self.conv2_bn4 = nn.BatchNorm2d(256)
 
         # Max Pool 4
-        self.maxpool4 = nn.MaxPool2d(kernel_size=(1, 2), return_indices=True)
-        self.avg_pool = nn.AvgPool2d((1, None))
+        self.maxpool4 = nn.MaxPool2d(kernel_size=(2, 1))
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, None))
+
+        self.dropout = nn.Dropout()
 
     def forward(self, x):
-        x = x.view(x.size(0), 1, x.size(1), x.size(2))
         out = self.conv1(x)
         out = self.swish1(out)
         out = self.conv2_bn1(out)
-        out, indices1 = self.maxpool1(out)
+        out = self.maxpool1(out)
 
         out = self.conv2(out)
         out = self.swish2(out)
         out = self.conv2_bn2(out)
-        out, indices2 = self.maxpool2(out)
+        out = self.maxpool2(out)
 
         out = self.conv3(out)
         out = self.swish3(out)
         out = self.conv2_bn3(out)
-        out, indices3 = self.maxpool3(out)
+        out = self.maxpool3(out)
 
         out = self.conv4(out)
         out = self.swish4(out)
         out = self.conv2_bn4(out)
-        out, indices4 = self.maxpool4(out)
+        out = self.maxpool4(out)
 
-        if self.training:
-            out = nn.functional.dropout(out, 0.5)
+        out = self.avg_pool(out)
+        out = self.dropout(out)
 
-        return out
+        out = out.squeeze(2)  # Remove height dimension
+
+        return out  # Batch x Features x Width

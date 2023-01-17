@@ -1,0 +1,69 @@
+{
+    "exp_name": "test", 
+    "cipher": "copiale",
+    "description": "CTC CRNN model based on Arnau Baró's work for alignment",
+    "wandb_project": "decrypt-align",
+    "wandb_mode": "disabled",
+    "train": {
+        "augmentation": 0,
+        "batch_size": 64,
+        "checkpoint": null,
+        "device": "cuda",
+        "grad_clip": null,
+        "max_epochs": 5000,
+        "learning_rate": 3e-4,
+        "optimizer": "adamw",
+        "save_every": 2,
+        "eval_every": 1,
+        "weight_decay": 1e-3,
+        "workers": 4,
+
+        "plateau_sched": false,
+        "plateau_factor": 1e-1,
+        "plateau_iters": 5,
+        "plateau_thresh": 0.01,
+        "plateau_min": 1e-7,
+
+        "warmup_sched": false,
+        "warmup_factor": 1e-1,
+        "warmup_iters": 5000,
+
+        "cosann_sched": false,
+        "cosann_t0": 3e-4,
+        "cosann_factor": 1e-1,
+        "cosann_min": 1e-5,
+
+        "log_images": 25
+    },
+    "model": {
+        "kern_upsampling": 7,
+        "intermediate_units": 512,
+        "pretrained": true,
+        "resnet": 18,
+        "sequence_length": 128,
+        "target_shape": [512, 64],
+        "output_upsampling": 8,
+        "arch": "baro",
+        "resnet_type": 18,
+        "lstm_layers": 4,
+        "lstm_hidden_size": 256,
+        "upsampling_kern": 3,
+        "upsampling_stride": 7,
+        "blstm": true,
+        "dropout": 0.25,
+        "sequence_length": 70,
+        "target_shape": [512, 64],
+        "decode_beams": 30
+    },
+    "dirs": {
+        "results_dir": "/home/ptorras/Documents/Decrypt/align_ctc",
+        "base_data_dir": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale",
+        "training_file": "gt_lines_training.json",
+        "training_root": "lines",
+        "validation_file": "gt_lines_validation.json",
+        "validation_root": "lines",
+        "test_file": "gt_lines_test.json",
+        "test_root": "lines",
+        "vocab_data": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale/vocab.json"
+    }
+}

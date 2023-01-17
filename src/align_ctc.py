@@ -14,7 +14,7 @@ from data.generic_decrypt import (
     GenericDecryptVocab,
     GenericSample,
 )
-from models.cnns import FullyConvCTC
+from models.crnns import BaroCRNN, ResnetCRNN
 from pathlib import Path
 from pydantic import BaseModel
 from shutil import copyfile
@@ -73,13 +73,16 @@ class TrainConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    kern_upsampling: int
-    intermediate_units: int
-    pretrained: bool
-    resnet: int
+    arch: str                      # baro or resnet
+    resnet_type: int
+    lstm_layers: int
+    lstm_hidden_size: int
+    upsampling_kern: int
+    upsampling_stride: int
+    blstm: bool
+    dropout: float
     sequence_length: int
-    target_shape: Tuple[int, int]  # Width, Height
-    output_upsampling: int
+    target_shape: Tuple[int, int]   # Width, Height
     decode_beams: int
 
 
@@ -251,14 +254,25 @@ class Experiment:
             self.cfg
         )
 
-        self.model = FullyConvCTC(
-            width_upsampling=self.cfg.model.output_upsampling,
-            kern_upsampling=self.cfg.model.kern_upsampling,
-            intermediate_units=self.cfg.model.intermediate_units,
-            output_units=len(self.vocab),
-            resnet_type=self.cfg.model.resnet,
-            pretrained=self.cfg.model.pretrained,
-        )
+        if self.cfg.model.arch == "baro":
+            self.model = BaroCRNN(
+                lstm_hidden_size=cfg.model.lstm_hidden_size,
+                lstm_layers=cfg.model.lstm_layers,
+                blstm=cfg.model.blstm,
+                dropout=cfg.model.dropout,
+                output_classes=len(self.vocab),
+            )
+        else:
+            self.model = ResnetCRNN(
+                resnet_type=cfg.model.resnet_type,
+                lstm_layers=cfg.model.lstm_layers,
+                lstm_hidden_size=cfg.model.lstm_hidden_size,
+                upsampling_kern=cfg.model.upsampling_kern,
+                upsampling_stride=cfg.model.upsampling_stride,
+                blstm=cfg.model.blstm,
+                dropout=cfg.model.dropout,
+                output_classes=len(self.vocab),
+            )
 
         if self.cfg.train.checkpoint is not None:
             self.model.load_weights(self.cfg.train.checkpoint)
