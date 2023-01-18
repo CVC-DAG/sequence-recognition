@@ -12,6 +12,7 @@ import matplotlib.patches as patches
 import numpy as np
 from numpy.typing import ArrayLike
 from pathlib import Path
+from PIL import Image
 
 
 def plotimg(img: ArrayLike) -> None:
@@ -42,7 +43,7 @@ def display_prediction(
     fig = plt.figure()
     ax = fig.add_subplot()
 
-    img = plt.imread(fname).astype(np.uint8)
+    img = np.array(Image.Open(fname))
     height, width, c = img.shape
 
     canvas = np.vstack([img, img, img])
@@ -99,7 +100,7 @@ def display_bboxes(
     fig = plt.figure()
     ax = fig.add_subplot()
 
-    img = plt.imread(fname).astype(np.uint8)
+    img = np.array(Image.Open(fname))
     height, _, _ = img.shape
 
     colors = plt.cm.hsv(np.linspace(0, 1, len(bboxes)))
