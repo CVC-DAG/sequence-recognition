@@ -222,7 +222,6 @@ class PrefixNode:
         self._char_index = char_index
         self._parent = parent
         self._confidence = confidence
-        self._children = []
         self._column = column
 
     def __str__(self) -> str:
@@ -300,7 +299,6 @@ class PrefixNode:
         node = PrefixNode(
             character, char_index, self, cumulative_confidence, self._column + 1
         )
-        self._children.append(node)
 
         return node
 
@@ -317,8 +315,8 @@ class PrefixNode:
         decoding = [node._char_index]
 
         while node._parent is not None:
-            decoding.append(node._char_index)
             node = node._parent
+            decoding.append(node._char_index)
 
         decoding.reverse()
         return np.array(decoding)
@@ -332,7 +330,6 @@ class PrefixTree:
 
     def __init__(
             self,
-            root_character: Optional[PrefixNode],
             output_sequence: ArrayLike,
             beam_width: int = MAX_WIDTH,
     ) -> None:
@@ -344,25 +341,33 @@ class PrefixTree:
         elements of a Numpy array.
         :param beam_width: Number of decoded sequences to keep at a time step.
         """
-        if root_character is None:
-            root_character = PrefixNode(BLANK_CHARACTER, FIRST_ELEMENT, None, 1.0)
-
-        self._root_character = root_character
         self._output_sequence = output_sequence
-        self._beams: List[PrefixNode] = [self._root_character]
+
+        first_char = PrefixNode(
+            self._output_sequence[0],
+            0,
+            None,
+            1.0,
+            0
+        )
+        self._beams: List[PrefixNode] = [first_char]
         self._ended: List[PrefixNode] = []
         self._beam_width = beam_width
 
     def complete(self) -> bool:
         """Check whether the set of beams is complete or not."""
-        if not len(self._ended):
-            return False
-        if not len(self._beams):
-            return True
-        if self._ended[0].confidence > self._beams[0].confidence:
-            return True
+        if len(self._ended):
+            if not len(self._beams):
+                return True
+            elif self._ended[0].confidence > self._beams[0].confidence:
+                return True
+            else:
+                return False
         else:
-            return False
+            if len(self._beams):
+                return False
+            else:
+                return True
 
     def __str__(self) -> str:
         """Get a string representation of the object."""
@@ -408,11 +413,10 @@ class PrefixTree:
         while not self.complete():
             alive_nodes = []
             for node in self._beams:
-                char_index = node._char_index
-                character = node._character
+                char_index = node.char_index
+                character = node.character
 
-                if not (character == BLANK_CHARACTER or character == -1):
-
+                if not character == BLANK_CHARACTER:
                     # Add same character as current node into the expansion
                     alive_nodes.append(node.expand(
                         self._output_sequence[char_index],
@@ -437,7 +441,7 @@ class PrefixTree:
 
             self._filter_nodes(ctc_matrix.shape[0], alive_nodes)
 
-        return self._ended[0].produce_sequence()[1:]
+        return self._ended[0].produce_sequence()
 
 
 def decode_ctc(
@@ -462,7 +466,6 @@ def decode_ctc(
 
     for mat, transcript, csize in zip(ctc_mat, out_seq, column_size):
         tree = PrefixTree(
-            None,
             transcript,
             beam_width
         )

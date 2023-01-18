@@ -525,6 +525,7 @@ class Experiment:
         loss: float,
         epoch: int,
     ) -> float:
+        print("Logging validation statistics + plotting images")
 
         global_iou = 0.0
         global_predictions = 0
@@ -577,6 +578,8 @@ class Experiment:
 
         table.to_json(str(self.save_path / self.json_name(split, epoch)))
         table.to_csv(str(self.save_path / self.csv_name(split, epoch)))
+
+        print("Done!")
 
         return global_iou / global_predictions
 

@@ -40,9 +40,9 @@ def display_prediction(
     :param output: A filename to store the output plot.
     """
     fig = plt.figure()
-    fig, ax = plt.subplots()
+    ax = fig.add_subplot()
 
-    img = plt.imread(fname)
+    img = plt.imread(fname).astype(np.uint8)
     height, width, c = img.shape
 
     canvas = np.vstack([img, img, img])

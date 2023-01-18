@@ -1,0 +1,62 @@
+{
+    "exp_name": "exploratory", 
+    "cipher": "copiale",
+    "description": "CTC CRNN exploratory experiments",
+    "wandb_project": "decrypt-align-crnn",
+    "wandb_mode": "online",
+    "train": {
+        "augmentation": 1,
+        "batch_size": anyof [32, 64],
+        "checkpoint": null,
+        "device": "cuda",
+        "grad_clip": anyof [null, 1.0],
+        "max_epochs": 5,
+        "learning_rate": range [1e-5, 1e-3],
+        "optimizer": "adamw",
+        "save_every": 1,
+        "eval_every": 5,
+        "weight_decay": logrange [1e-7, 1e-1],
+        "workers": 8,
+
+        "plateau_sched": false,
+        "plateau_factor": 1e-1,
+        "plateau_iters": 5,
+        "plateau_thresh": 0.01,
+        "plateau_min": 1e-7,
+
+        "warmup_sched": anyof [true, false],
+        "warmup_factor": 1e-1,
+        "warmup_iters": 5000,
+
+        "cosann_sched": false,
+        "cosann_t0": 3e-4,
+        "cosann_factor": 1e-1,
+        "cosann_min": 1e-5,
+
+        "log_images": 25
+    },
+    "model": {
+        "arch": anyof ["baro", "resnet"],
+        "resnet_type": anyof [18, 34, 50],
+        "lstm_layers": anyof [2, 4, 6],
+        "lstm_hidden_size": anyof [128, 256, 512],
+        "upsampling_kern": anyof [3, 5],
+        "upsampling_stride": anyof [5, 7, 9],
+        "blstm": anyof [true, false],
+        "dropout": range [0.0, 0.5],
+        "sequence_length": 70,
+        "target_shape": anyof [[512, 64], [1024, 128]],
+        "decode_beams": 30
+    },
+    "dirs": {
+        "results_dir": "/home/ptorras/Documents/Decrypt/align_crnn",
+        "base_data_dir": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale",
+        "training_file": "gt_words_training.json",
+        "training_root": "words",
+        "validation_file": "gt_words_validation.json",
+        "validation_root": "words",
+        "test_file": "gt_words_test.json",
+        "test_root": "words",
+        "vocab_data": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale/vocab.json"
+    }
+}
