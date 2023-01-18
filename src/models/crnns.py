@@ -108,7 +108,7 @@ class ResnetCRNN(nn.Module):
             x = x.view(seq_len, batch_size, self.directions, hidden_size // self.directions)
             x = x.sum(axis=2)
 
-        x = self.linear(x)      # Length, Batch, Classes
+        x = self.output_layer(x)      # Length, Batch, Classes
         x = self.log_softmax(x)
 
         return x
