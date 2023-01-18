@@ -1,0 +1,61 @@
+{
+    "exp_name": "exploratory001",
+    "cipher": "copiale",
+    "description": "CTC CRNN exploratory experiments",
+    "wandb_project": "decrypt-align-crnn",
+    "wandb_mode": "online",
+    "train": {
+        "augmentation": 1,
+        "batch_size": 32,
+        "checkpoint": null,
+        "device": "cuda",
+        "grad_clip": null,
+        "max_epochs": 5,
+        "learning_rate": 0.0003577451245706154,
+        "optimizer": "adamw",
+        "save_every": 1,
+        "eval_every": 5,
+        "weight_decay": 9.137269167270121e-07,
+        "workers": 8,
+        "plateau_sched": false,
+        "plateau_factor": 0.1,
+        "plateau_iters": 5,
+        "plateau_thresh": 0.01,
+        "plateau_min": 1e-07,
+        "warmup_sched": false,
+        "warmup_factor": 0.1,
+        "warmup_iters": 5000,
+        "cosann_sched": false,
+        "cosann_t0": 0.0003,
+        "cosann_factor": 0.1,
+        "cosann_min": 1e-05,
+        "log_images": 25
+    },
+    "model": {
+        "arch": "resnet",
+        "resnet_type": 18,
+        "lstm_layers": 6,
+        "lstm_hidden_size": 512,
+        "upsampling_kern": 3,
+        "upsampling_stride": 9,
+        "blstm": true,
+        "dropout": 0.31268170469295425,
+        "sequence_length": 70,
+        "target_shape": [
+            1024,
+            128
+        ],
+        "decode_beams": 30
+    },
+    "dirs": {
+        "results_dir": "/home/ptorras/Documents/Decrypt/align_crnn",
+        "base_data_dir": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale",
+        "training_file": "gt_words_training.json",
+        "training_root": "words",
+        "validation_file": "gt_words_validation.json",
+        "validation_root": "words",
+        "test_file": "gt_words_test.json",
+        "test_root": "words",
+        "vocab_data": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale/vocab.json"
+    }
+}
