@@ -12,7 +12,7 @@ from typing import List, Optional, NamedTuple, Tuple
 import numpy as np
 from numpy.typing import ArrayLike
 
-from utils.ops import seqiou
+from utils.ops import seqiou, sequiou_multiple
 
 
 BLANK_CHARACTER: int = 0
@@ -170,21 +170,25 @@ class PredictionGroup:
     def __init__(
             self,
             predictions: List[Prediction],
-            names: List[str],
+            gt_sequence: str,
+            names: List[str | None] | None = None,
     ) -> None:
         """Create PredictionGroup object.
 
         :param predictions: A list of Prediction objects of the same image
         line. They must contain the same number of elements, as they are
         produced from the same ground truth sequence as reference.
+        :param gt_sequence: The ground truth of the sequence being predicted.
         :param names: A list of method names to keep track of results in
         an orderly fashion.
         """
         self._predictions = predictions
-        self._names = names
+        self._gt_sequence = gt_sequence
+        self._names = names or [None for _ in predictions]
 
     def find_anchors(
-            self
+            self,
+            iou_thresh: float,
     ) -> Prediction:
         """Compute high-consensus predictions.
 
@@ -195,7 +199,18 @@ class PredictionGroup:
 
         :returns: A Prediction composed only of the anchor elements.
         """
-        raise NotImplementedError
+        predictions = np.stack([x.get_coords() for x in self._predictions])
+        iou_vector = sequiou_multiple(predictions)
+        agreement = iou_vector >= iou_thresh
+
+        newx1 = np.mean(predictions[:, :, 0], axis=0).astype(int)
+        newx2 = np.mean(predictions[:, :, 1], axis=0).astype(int)
+        newpreds = np.stack([newx1, newx2], axis=-1)
+        nullboxes = np.full(newpreds.shape, -1)
+
+        anchors = np.where(agreement, newpreds, nullboxes)
+
+        return anchors
 
 
 class PrefixNode:

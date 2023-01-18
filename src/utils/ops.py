@@ -167,7 +167,7 @@ def sequiou_multiple(bbox_set: ArrayLike) -> ArrayLike:
     x2min = np.min(x2, axis=0)
 
     intersection = x2min - x1max
-    union = (x2max - x1min)
+    union = x2max - x1min
     union[union <= 0] = 1
 
     return intersection / union
