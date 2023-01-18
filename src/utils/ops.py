@@ -143,6 +143,36 @@ def seqiou(bboxes1, bboxes2):
     return iou
 
 
+def sequiou_multiple(bbox_set: ArrayLike) -> ArrayLike:
+    """Performs iou of multiple sets of boxes.
+
+    Parameters
+    ----------
+    bbox_set: ArrayLike
+        A set of bounding boxes with shape N x L x 2 where N is the number of
+        predictions and L is the sequence length.
+    
+    Returns
+    -------
+    ArrayLike:
+        An L-length array with the IoU of each bounding box.
+    """
+    n, l, _ = bbox_set.shape
+    x1, x2 = np.split(bbox_set, 2, axis=-1)
+    x1, x2 = x1.squeeze(-1), x2.squeeze(-1)
+    
+    x1max = np.max(x1, axis=0)
+    x1min = np.min(x1, axis=0)
+    x2max = np.max(x2, axis=0)
+    x2min = np.min(x2, axis=0)
+
+    intersection = x2min - x1max
+    union = (x2max - x1min)
+    union[union <= 0] = 1
+
+    return intersection / union
+
+
 def compare_gt(iou, confidence):
     """
     Compare each ground truth box against a prediction and align them. Solve
