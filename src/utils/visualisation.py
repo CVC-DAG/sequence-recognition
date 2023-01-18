@@ -36,7 +36,7 @@ def display_prediction(
 
     :param fname: Path to the input image.
     :param pred_coords: 1D Prediction bounding boxes.
-    :param pred_coords: 1D Ground Truth bounding boxes.
+    :param gt_coords: 1D Ground Truth bounding boxes.
     :param output: A filename to store the output plot.
     """
     fig = plt.figure()
@@ -82,5 +82,41 @@ def display_prediction(
             color=colors[ii],
             linewidth=1,
         )
+    fig.savefig(output, bbox_inches='tight', dpi=300)
+    plt.close(fig)
+
+def display_bboxes(
+        fname: str,
+        bboxes: ArrayLike
+        output: str,
+) -> None:
+    """Display a prediction on the image. Ignores negative bboxes.
+
+    :param fname: Path to the input image.
+    :param bboxes: 1D Prediction bounding boxes.
+    :param output: A filename to store the output plot.
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    img = plt.imread(fname).astype(np.uint8)
+    height, _, _ = img.shape
+
+    colors = plt.cm.hsv(np.linspace(0, 1, len(bboxes)))
+
+    ax.imshow(img)
+
+    for ii, (x1, x2) in enumerate(bboxes):
+        if x1 < 0 and x2 < 0:
+            continue
+        width = x2 - x1
+        ax.add_patch(patches.Rectangle(
+            (x1, 0),
+            gt_width,
+            height,
+            color=colors[ii],
+            alpha=0.5,
+            linewidth=1,
+        ))
     fig.savefig(output, bbox_inches='tight', dpi=300)
     plt.close(fig)
