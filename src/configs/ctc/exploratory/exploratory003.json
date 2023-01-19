@@ -6,16 +6,16 @@
     "wandb_mode": "online",
     "train": {
         "augmentation": 1,
-        "batch_size": 32,
+        "batch_size": 64,
         "checkpoint": null,
         "device": "cuda",
-        "grad_clip": 1.0,
+        "grad_clip": null,
         "max_epochs": 5,
-        "learning_rate": 0.000571323663340267,
+        "learning_rate": 0.000921341821182169,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 5,
-        "weight_decay": 6.345243920349153e-06,
+        "weight_decay": 8.973224240485022e-05,
         "workers": 8,
         "plateau_sched": false,
         "plateau_factor": 0.1,
@@ -32,18 +32,18 @@
         "log_images": 25
     },
     "model": {
-        "arch": "resnet",
-        "resnet_type": 18,
-        "lstm_layers": 6,
+        "arch": "baro",
+        "resnet_type": 34,
+        "lstm_layers": 4,
         "lstm_hidden_size": 128,
-        "upsampling_kern": 3,
+        "upsampling_kern": 5,
         "upsampling_stride": 9,
         "blstm": true,
-        "dropout": 0.4829396715701542,
+        "dropout": 0.3976637595271922,
         "sequence_length": 70,
         "target_shape": [
-            1024,
-            128
+            512,
+            64
         ],
         "decode_beams": 30
     },

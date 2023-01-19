@@ -86,9 +86,10 @@ def display_prediction(
     fig.savefig(output, bbox_inches='tight', dpi=300)
     plt.close(fig)
 
+
 def display_bboxes(
         fname: str,
-        bboxes: ArrayLike
+        bboxes: ArrayLike,
         output: str,
 ) -> None:
     """Display a prediction on the image. Ignores negative bboxes.

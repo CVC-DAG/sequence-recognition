@@ -11,11 +11,11 @@
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 5,
-        "learning_rate": 0.00011921470389975829,
+        "learning_rate": 4.954830800484522e-05,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 5,
-        "weight_decay": 3.1128673308176783e-06,
+        "weight_decay": 0.008934980723396857,
         "workers": 8,
         "plateau_sched": false,
         "plateau_factor": 0.1,
@@ -32,18 +32,18 @@
         "log_images": 25
     },
     "model": {
-        "arch": "resnet",
-        "resnet_type": 34,
+        "arch": "baro",
+        "resnet_type": 50,
         "lstm_layers": 4,
-        "lstm_hidden_size": 128,
-        "upsampling_kern": 3,
-        "upsampling_stride": 5,
+        "lstm_hidden_size": 256,
+        "upsampling_kern": 5,
+        "upsampling_stride": 11,
         "blstm": false,
-        "dropout": 0.2747359979338287,
+        "dropout": 0.29502695139237745,
         "sequence_length": 70,
         "target_shape": [
-            1024,
-            128
+            512,
+            64
         ],
         "decode_beams": 30
     },

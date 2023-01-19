@@ -41,7 +41,7 @@
         "lstm_layers": anyof [2, 4, 6],
         "lstm_hidden_size": anyof [128, 256, 512],
         "upsampling_kern": anyof [3, 5],
-        "upsampling_stride": anyof [5, 7, 9],
+        "upsampling_stride": anyof [7, 9, 11],
         "blstm": anyof [true, false],
         "dropout": range [0.0, 0.5],
         "sequence_length": 70,

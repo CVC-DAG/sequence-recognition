@@ -9,13 +9,13 @@
         "batch_size": 64,
         "checkpoint": null,
         "device": "cuda",
-        "grad_clip": null,
+        "grad_clip": 1.0,
         "max_epochs": 5,
-        "learning_rate": 0.0001410196508508318,
+        "learning_rate": 0.00041258925732082935,
         "optimizer": "adamw",
         "save_every": 1,
         "eval_every": 5,
-        "weight_decay": 5.967614431117548e-05,
+        "weight_decay": 0.015591135548275943,
         "workers": 8,
         "plateau_sched": false,
         "plateau_factor": 0.1,
@@ -32,18 +32,18 @@
         "log_images": 25
     },
     "model": {
-        "arch": "resnet",
-        "resnet_type": 18,
-        "lstm_layers": 6,
+        "arch": "baro",
+        "resnet_type": 50,
+        "lstm_layers": 4,
         "lstm_hidden_size": 256,
         "upsampling_kern": 5,
-        "upsampling_stride": 5,
+        "upsampling_stride": 9,
         "blstm": true,
-        "dropout": 0.07730370257442981,
+        "dropout": 0.05373350950690292,
         "sequence_length": 70,
         "target_shape": [
-            1024,
-            128
+            512,
+            64
         ],
         "decode_beams": 30
     },
