@@ -43,7 +43,7 @@ def display_prediction(
     fig = plt.figure()
     ax = fig.add_subplot()
 
-    img = np.array(Image.Open(fname))
+    img = np.array(Image.open(fname))
     height, width, c = img.shape
 
     canvas = np.vstack([img, img, img])
