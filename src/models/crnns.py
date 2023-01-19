@@ -5,10 +5,13 @@ import torch
 from torch import nn
 from warnings import warn
 
+from .base_model import BaseModel
 from .cnns import create_resnet, RESNET_EMBEDDING_SIZES, BaroCNN
 
 
-class BaroCRNN(nn.Module):
+class BaroCRNN(BaseModel):
+    """CRNN Model based on Arnau Baró's CTC OMR model."""
+
     def __init__(
         self,
         lstm_hidden_size: int,
@@ -17,6 +20,19 @@ class BaroCRNN(nn.Module):
         dropout: float,
         output_classes: int,
     ) -> None:
+        """Initialise Baró CRNN from parameters.
+
+        Parameters
+        ----------
+        lstm_hidden_size: int
+            Dimensionality within the stack of recurrent layers.
+        lstm_layers: int
+            Number of recurrent layers to stack.
+        blstm: bool
+            Whether the stack of recurrent layers will be bidirectional.
+        output_classes: int
+            Number of output classes in the vocabulary.
+        """
         super().__init__()
         self.directions = 2 if blstm else 1
 
@@ -32,6 +48,23 @@ class BaroCRNN(nn.Module):
         self.log_softmax = nn.LogSoftmax(-1)
 
     def forward(self, x) -> torch.Tensor:
+        """Compute the transcription of the input batch images x.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
+        """
         x = self.backbone(x)
         x = x.permute(2, 0, 1)  # Length, Batch, Hidden
         x, _ = self.lstm(x)     # Length, Batch, Hidden * Directions
@@ -39,7 +72,12 @@ class BaroCRNN(nn.Module):
         if self.directions > 1:
             seq_len, batch_size, hidden_size = x.shape
 
-            x = x.view(seq_len, batch_size, self.directions, hidden_size // self.directions)
+            x = x.view(
+                seq_len,
+                batch_size,
+                self.directions,
+                hidden_size // self.directions
+            )
             x = x.sum(axis=2)
 
         x = self.linear(x)      # Length, Batch, Classes
@@ -47,21 +85,10 @@ class BaroCRNN(nn.Module):
 
         return x
 
-    def load_weights(self, wpath: str) -> None:
-        weights = torch.load(wpath)
-        missing, unexpected = self.load_state_dict(weights, strict=False)
 
-        if missing or unexpected:
-            warn("Careful: Not all weights have been loaded on the model")
-            print("Missing: ", missing)
-            print("Unexpected: ", unexpected)
+class ResnetCRNN(BaseModel):
+    """CRNN Model with a ResNet as backcbone."""
 
-    def save_weights(self, path: str) -> None:
-        state_dict = self.state_dict()
-        torch.save(state_dict, path)
-
-
-class ResnetCRNN(nn.Module):
     def __init__(
         self,
         resnet_type: int,
@@ -73,6 +100,21 @@ class ResnetCRNN(nn.Module):
         dropout: float,
         output_classes: int,
     ) -> None:
+        """Initialise ResnetCRNN from parameters.
+
+        Parameters
+        ----------
+        resnet_type: int
+            What type of ResNet to employ as backbone.
+        lstm_layers: int
+            Number of recurrent layers to stack.
+        lstm_hidden_size: int
+            Dimensionality within the stack of recurrent layers.
+        blstm: bool
+            Whether the stack of recurrent layers will be bidirectional.
+        output_classes: int
+            Number of output classes in the vocabulary.
+        """
         super().__init__()
         self.directions = 2 if blstm else 1
         self.hidden_size = RESNET_EMBEDDING_SIZES[resnet_type]
@@ -96,6 +138,23 @@ class ResnetCRNN(nn.Module):
         self.log_softmax = nn.LogSoftmax(dim=-1)
 
     def forward(self, x) -> torch.Tensor:
+        """Compute the transcription of the input batch images x.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
+        """
         x = self.backbone(x)    # Batch, Channels, Height, Width // 16
         x = self.avg_pool(x)    # Batch, Channels, 1, Width // 16
         x = self.upsample(x)    # Batch, Channels, 1, Length
@@ -105,23 +164,14 @@ class ResnetCRNN(nn.Module):
 
         if self.directions > 1:
             seq_len, batch_size, hidden_size = x.shape
-            x = x.view(seq_len, batch_size, self.directions, hidden_size // self.directions)
+            x = x.view(
+                seq_len,
+                batch_size,
+                self.directions, hidden_size // self.directions
+            )
             x = x.sum(axis=2)
 
         x = self.output_layer(x)      # Length, Batch, Classes
         x = self.log_softmax(x)
 
         return x
-
-    def load_weights(self, wpath: str) -> None:
-        weights = torch.load(wpath)
-        missing, unexpected = self.load_state_dict(weights, strict=False)
-
-        if missing or unexpected:
-            warn("Careful: Not all weights have been loaded on the model")
-            print("Missing: ", missing)
-            print("Unexpected: ", unexpected)
-
-    def save_weights(self, path: str) -> None:
-        state_dict = self.state_dict()
-        torch.save(state_dict, path)

@@ -2,22 +2,22 @@
 
 import torch
 from torch import nn
-from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
-
 from torchvision.models import (
-    vgg11,
-    vgg11_bn,
-    vgg13,
-    vgg13_bn,
-    vgg16,
-    vgg16_bn,
-    vgg19,
-    vgg19_bn,
+    resnet18,
+    resnet34,
+    resnet50,
+    resnet101,
+    resnet152
 )
 
-from warnings import warn
+from .base_model import BaseModel
 
-from typing import Callable
+from torchvision.models import (
+    vgg11, vgg11_bn,
+    vgg13, vgg13_bn,
+    vgg16, vgg16_bn,
+    vgg19, vgg19_bn,
+)
 
 
 RESNETS = {
@@ -48,7 +48,23 @@ VGGS_BN = {
 def create_resnet(
     resnet_type: int, headless: bool = True, pretrained: bool = True
 ) -> nn.Module:
-    """Generate a ResNet from TorchVision given the ResNet type as integer."""
+    """Generate a ResNet from TorchVision given the ResNet type as integer.
+
+    Parameters
+    ----------
+    resnet_type: int
+        The number that represents the ResNet type (18, 34, 50, 101, 152).
+    headless: bool
+        Whether or not to remove the classification and embedding layers atop
+        the default ResNet.
+    pretrained: bool
+        Whether to use pretrained weights or not.
+
+    Returns
+    -------
+    nn.Module
+        A ResNet model ready for inference.
+    """
     resnet = RESNETS[resnet_type]
     resnet = resnet(pretrained=pretrained)
 
@@ -63,7 +79,23 @@ def create_vgg(
     headless: bool = True,
     pretrained: bool = True,
 ) -> nn.Module:
-    """Generate a VGG from TorchVision given the VGG type as integer."""
+    """Generate a VGG from TorchVision given the VGG type as integer.
+
+    Parameters
+    ----------
+    resnet_type: int
+        The number that represents the VGG type (11, 13, 16, 19).
+    headless: bool
+        Whether or not to remove the classification and embedding layers atop
+        the default VGG.
+    pretrained: bool
+        Whether to use pretrained weights or not.
+
+    Returns
+    -------
+    nn.Module
+        A VGG model ready for inference.
+    """
     vgg_dict = VGGS_BN if batchnorm else VGGS
 
     vgg = vgg_dict[vgg_type]
@@ -75,7 +107,7 @@ def create_vgg(
     return vgg
 
 
-class FullyConvCTC(nn.Module):
+class FullyConvCTC(BaseModel):
     """A fully convolutional CTC model with convolutional upsampling."""
 
     def __init__(
@@ -89,14 +121,21 @@ class FullyConvCTC(nn.Module):
     ) -> None:
         """Initialise FullyConv model from parameters.
 
-        :param width_upsampling: Denominator for the fractional stride on the
-        upsampling step.
-        :param kern_upsampling: Kernel width to use during the upsampling step.
-        :param intermediate_units: Size of the intermediate representation
-        before the output linear layer.
-        :param output_units: Number of output classes.
-        :param resnet_type: Number describing the type of ResNet to employ.
-        :pretrained: bool: Whether to use a pretrained backbone or not.
+        Parameters
+        ----------
+        width_upsampling: int
+            Denominator for the fractional stride on the upsampling step.
+        kern_upsampling: int
+            Kernel width to use during the upsampling step.
+        intermediate_units: int
+            Size of the intermediate representation before the output linear
+            layer.
+        output_units: int
+            Number of output classes.
+        resnet_type: int
+            Number describing the type of ResNet to employ.
+        pretrained: bool
+            Whether to use a pretrained backbone or not.
         """
         super().__init__()
 
@@ -117,42 +156,39 @@ class FullyConvCTC(nn.Module):
         )
         self._softmax = nn.LogSoftmax(dim=-1)
 
-    def forward(
-        self,
-        x: torch.Tensor,
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute the transcription of the input batch images x.
 
-        :param x: Batch of input tensor images.
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
         """
         # x: N x 3   x H       x W
-        x = self._backbone(x)  # N x 512 x H // 32 x W // 32
-        x = self._pooling(x)  # N x 512 x 1       x W // 32
-        x = self._upsample(x)  # N x INT x 1       x ~(W // 32 - 1) * K
+        x = self._backbone(x)       # N x 512 x H // 32 x W // 32
+        x = self._pooling(x)        # N x 512 x 1       x W // 32
+        x = self._upsample(x)       # N x INT x 1       x ~(W // 32 - 1) * K
         x = self._activation(x)
-        x = self._output(x)  # N x CLS x~(W // 32 - 1) * K
-        x = x.squeeze(2)  # N x INT x ~(W // 32 - 1) * K
-        x = x.permute((2, 0, 1))  # ~(W // 32 - 1) * K x N x  CLS
+        x = self._output(x)         # N x CLS x~(W // 32 - 1) * K
+        x = x.squeeze(2)            # N x INT x ~(W // 32 - 1) * K
+        x = x.permute((2, 0, 1))    # ~(W // 32 - 1) * K x N x  CLS
         y = self._softmax(x)
 
         return y
 
-    def load_weights(self, wpath: str) -> None:
-        weights = torch.load(wpath)
-        missing, unexpected = self.load_state_dict(weights, strict=False)
-
-        if missing or unexpected:
-            warn("Careful: Not all weights have been loaded on the model")
-            print("Missing: ", missing)
-            print("Unexpected: ", unexpected)
-
-    def save_weights(self, path: str) -> None:
-        state_dict = self.state_dict()
-        torch.save(state_dict, path)
-
 
 class BaroCNN(nn.Module):
-    """Based on Arnau Baró's CRNN CTC model."""
+    """ConvNet model based on Arnau Baró's CRNN CTC."""
 
     def __init__(
         self,
@@ -160,7 +196,10 @@ class BaroCNN(nn.Module):
     ) -> None:
         """Initialise BaroCNN model.
 
-        :param dropout: Dropout to be applied to the final embedding.
+        Parameters
+        ----------
+        dropout: float
+            Dropout to be applied to the final embedding.
         """
         super().__init__()
 
@@ -212,6 +251,23 @@ class BaroCNN(nn.Module):
         self.dropout = nn.Dropout()
 
     def forward(self, x):
+        """Perform inference.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
+        """
         out = self.conv1(x)
         out = self.swish1(out)
         out = self.conv2_bn1(out)
