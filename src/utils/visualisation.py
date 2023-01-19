@@ -101,7 +101,7 @@ def display_bboxes(
     fig = plt.figure()
     ax = fig.add_subplot()
 
-    img = np.array(Image.Open(fname))
+    img = np.array(Image.open(fname))
     height, _, _ = img.shape
 
     colors = plt.cm.hsv(np.linspace(0, 1, len(bboxes)))
@@ -114,7 +114,7 @@ def display_bboxes(
         width = x2 - x1
         ax.add_patch(patches.Rectangle(
             (x1, 0),
-            gt_width,
+            width,
             height,
             color=colors[ii],
             alpha=0.5,
