@@ -1,9 +1,11 @@
 """Base model class with QoL functions already implemented."""
 
+from typing import Dict
 from warnings import warn
 
 import torch
 from torch import nn
+from ..data.generic_decrypt import BatchedSample
 
 
 class BaseModel(nn.Module):
@@ -47,3 +49,38 @@ class BaseModel(nn.Module):
         """
         state_dict = self.state_dict()
         torch.save(state_dict, path)
+
+    def compute_batch(self, batch: BatchedSample) -> torch.Tensor:
+        """Generate the model's output for a single input batch.
+
+        Parameters
+        ----------
+        batch_in: BatchedSample
+            A model input batch encapsulated in a BatchedSample named tuple.
+
+        Returns
+        -------
+        output: torch.Tensor
+            The output of the model for the input batch.
+        """
+        raise NotImplementedError
+
+    def compute_results(
+        self, model_output: torch.Tensor, batch: BatchedSample
+    ) -> Dict:
+        """Compute the human-readable version of the model's batch output.
+
+        Parameters
+        ----------
+        output: torch.Tensor
+            The output for a single training iteration for the model
+        batch_in: BatchedSample
+            A model input batch encapsulated in a BatchedSample named tuple.
+
+        Returns
+        -------
+        dict
+            The output of the model for the input batch. The key-value pairs
+            depend on the underlying model.
+        """
+        raise NotImplementedError
