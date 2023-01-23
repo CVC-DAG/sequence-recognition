@@ -1,6 +1,6 @@
 """Base model class with QoL functions already implemented."""
 
-from typing import Dict
+from typing import Any, Dict
 from warnings import warn
 
 import torch
@@ -9,10 +9,10 @@ from ..data.generic_decrypt import BatchedSample
 
 
 class BaseModel(nn.Module):
-    """Template for a Decrypt model.
+    """Template for a model with some QoL methods available.
 
     A template to follow by models used in inference on the Decrypt
-    alignment codebase.
+    alignment codebase. The model must own the loss function as well.
     """
 
     def __init__(self) -> None:
@@ -65,22 +65,21 @@ class BaseModel(nn.Module):
         """
         raise NotImplementedError
 
-    def compute_results(
-        self, model_output: torch.Tensor, batch: BatchedSample
-    ) -> Dict:
-        """Compute the human-readable version of the model's batch output.
+    def compute_loss(
+        self, batch: BatchedSample, output: torch.Tensor
+    ) -> torch.float32:
+        """Generate the model's loss for a single input batch and output.
 
         Parameters
         ----------
-        output: torch.Tensor
-            The output for a single training iteration for the model
         batch_in: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
+        output: torch.Tensor
+            The output of the model for the input batch.
 
         Returns
         -------
-        dict
-            The output of the model for the input batch. The key-value pairs
-            depend on the underlying model.
+        torch.float32
+            The model's loss for the given input.
         """
         raise NotImplementedError

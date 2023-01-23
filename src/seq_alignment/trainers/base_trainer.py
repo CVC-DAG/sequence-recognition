@@ -1,7 +1,8 @@
 """Default trainer implementation."""
 
+import math
 from pathlib import Path
-from typing import Callable, Tuple, List, Dict, Optional
+from typing import Any, Callable, Tuple, List, Dict, Optional, Type
 
 import torch
 from torch import nn
@@ -13,9 +14,10 @@ from torchinfo import summary
 
 from pydantic import BaseModel
 
-from data.generic_decrypt import BatchedSample, GenericDecryptDataset
-from models.base_model import BaseModel
-from base_validator import Validator
+from ..data.generic_decrypt import BatchedSample, GenericDecryptDataset
+from ..formatters.base_formatter import BaseFormatter
+from ..models.base_model import BaseModel as BaseInferenceModel
+from ..validators.base_validator import BaseValidator
 
 from tqdm.auto import tqdm
 
@@ -52,25 +54,46 @@ class TrainerConfig(BaseModel):
     cosann_min: float  # Min learning rate
 
 
-class Trainer:
+class BaseTrainer:
     """Implements default training loop and methods."""
 
     def __init__(
         self,
-        model: BaseModel,
+        model: BaseInferenceModel,
         train_data: D.Dataset,
         loss_func: Callable,
         config: TrainerConfig,
         save_path: Path,
-        validator: Validator,
-        epoch_end_hook: Callable[List[Dict], bool] | None = None,
+        validator: BaseValidator,
+        formatter: BaseFormatter,
+        epoch_end_hook: Optional[Callable[List[Dict], bool]] = None,
     ) -> None:
+        """Construct the BaseTrainer object with given params.
+
+        Parameters
+        ----------
+        model: BaseInferenceModel
+            The model with which to perform training and inference.
+        train_data: D.Dataset
+            Dataset to train with.
+        loss_func: Callable
+
+        config: TrainerConfig
+
+        save_path: Path
+
+        validator: BaseValidator
+
+        formatter: BaseFormatter
+
+        """
         self.config = config
 
         self.model = model
         self.train_data = self._create_dataloader(self.config, train_data)
         self.loss_func = loss_func
         self.save_path = save_path
+        self.validator = validator(self)
 
         self.optimizer = self._create_optimizer(self.config, self.model)
         self.warmup_sched = self._create_warmup(self.config, self.optimizer)
@@ -85,10 +108,12 @@ class Trainer:
         self.epoch_end_hook = epoch_end_hook or (lambda x: True)
         self.curr_name = lambda epoch: f"weights_e{epoch}.pth"
 
+        self.best_metric = - math.inf if self.validator.maximise() else math.inf
+
     @staticmethod
     def _create_optimizer(
         config: TrainerConfig,
-        model: BaseModel,
+        model: BaseInferenceModel,
     ) -> optim.Optimizer:
         """Create an optimizer based on a config object.
 
@@ -120,15 +145,17 @@ class Trainer:
                 weight_decay=config.weight_decay,
             )
         else:
-            raise ValueError(f"The prompted optimizer ({config.optimizer}) is "
-                             f"not supported or does not exist.")
+            raise ValueError(
+                f"The prompted optimizer ({config.optimizer}) is "
+                f"not supported or does not exist."
+            )
         return optimizer
 
     @staticmethod
     def _create_plateau(
         config: TrainerConfig,
         optimizer: optim.Optimizer,
-    ) -> sched.ReduceLROnPlateau | None:
+    ) -> Optional[sched.ReduceLROnPlateau]:
         """Create a Plateau Reduction scheduler based on a config object.
 
         Parameters
@@ -161,7 +188,7 @@ class Trainer:
     def _create_warmup(
         config: TrainerConfig,
         optimizer: optim.Optimizer,
-    ) -> sched.LinearLR | None:
+    ) -> Optional[sched.LinearLR]:
         """Create a warmup scheduler based on a config object.
 
         Parameters
@@ -189,7 +216,7 @@ class Trainer:
     def _create_cosann(
         config: TrainerConfig,
         optimizer: optim.Optimizer,
-    ) -> sched.CosineAnnealingWarmRestarts | None:
+    ) -> Optional[sched.CosineAnnealingWarmRestarts]:
         """Create a cosine annealing scheduler based on a config object.
 
         Parameters
@@ -216,9 +243,7 @@ class Trainer:
         return scheduler
 
     @staticmethod
-    def _create_dataloader(
-            config: TrainerConfig, dataset: D.Dataset
-    ) -> D.DataLoader:
+    def _create_dataloader(config: TrainerConfig, dataset: D.Dataset) -> D.DataLoader:
         dataloader = D.DataLoader(
             dataset,
             batch_size=config.batch_size,
@@ -234,26 +259,7 @@ class Trainer:
             return param_group["lr"]
         return 0.0
 
-    def compute_loss(
-        self, model_output: torch.Tensor, batch_in: BatchedSample
-    ) -> torch.float32:
-        """Compute the model's loss for a single batch output.
-
-        Parameters
-        ----------
-        output: torch.Tensor
-            The output for a single training iteration for the model
-        batch_in: BatchedSample
-            A model input batch encapsulated in a BatchedSample named tuple.
-
-        Returns
-        -------
-        output: torch.Tensor
-            The output of the model for the input batch.
-        """
-        raise NotImplementedError
-
-    def should_training_stop(self, epoch_results: List[Dict]) -> bool:
+    def should_training_stop(self, epoch: int, epoch_results: List[Dict]) -> bool:
         """Assess whether the training should be stopped after an epoch."""
         return False
 
@@ -284,16 +290,14 @@ class Trainer:
 
             epoch_results = []
 
-            for batch in tqdm(
-                    self.train_data,
-                    desc=f"Epoch {epoch} in Progress..."
-            ):
+            for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
 
                 output = self.model.compute_batch(batch)
-                batch_loss = self.compute_loss(output, batch)
+                batch_loss = self.model.compute_loss(output, batch)
+                results = self.formatter.format(output, batch)
 
-                results.append(epoch_results)
+                epoch_results.append(results)
 
                 self.optimizer.zero_grad()
                 batch_loss.backward()
@@ -318,18 +322,21 @@ class Trainer:
                     step=self.train_iters,
                 )
 
+            self.log_epoch_results(epoch_results)
+
             if not epoch % self.config.save_every:
                 self.save_current_weights(epoch)
 
             if not epoch % self.config.eval_every:
-                val_loss, val_iou = self.validator(epoch)
+                val_loss, val_metric = self.validator.validate(self.model, epoch)
 
-                if val_iou > self.best_iou:
-                    self.best_iou = val_iou
+                if (self.validator.maximise() and val_metric > self.best_metric) or \
+                        not (self.validator.maximise() and val_metric < self.best_metric):
+                    self.best_metric = val_metric
                     self.best_epoch = epoch
 
                     self.model.save_weights(str(self.save_path / self.best_name))
 
             self.epoch_end_hook(epoch_results)
-            if self.should_training_stop(epoch_results):
+            if self.should_training_stop(epoch, epoch_results):
                 break
