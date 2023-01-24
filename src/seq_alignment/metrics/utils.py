@@ -22,6 +22,7 @@ class Compose(BaseMetric):
         metrics: List[BaseMetric]
             List of metrics to be computed for a single output.
         """
+        super().__init__()
         self.metrics = metrics
 
     def __call__(

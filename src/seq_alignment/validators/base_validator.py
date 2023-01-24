@@ -68,6 +68,7 @@ class BaseValidator:
             model: nn.Module,
             epoch: int,
             iters: int,
+            device: torch.device,
     ) -> Tuple[float, float]:
         """Perform validation on an instance of the trained model.
 
@@ -100,8 +101,11 @@ class BaseValidator:
                     self.valid_data,
                     desc=f"{self.mode} for {epoch} in Progress..."
             ):
-                output = self.model.compute_batch(batch)
-                batch_loss = self.model.compute_loss(output, batch)
+                output = self.model.compute_batch(batch, device)
+                batch_loss = self.model.compute_loss(output, batch, device)
+
+                output = output.detach().cpu().numpy()
+
                 results = self.formatter.format(output, batch)
                 metrics = self.metric.measure(results, batch)
 

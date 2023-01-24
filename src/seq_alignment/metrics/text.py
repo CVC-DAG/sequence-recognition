@@ -15,6 +15,7 @@ class Levenshtein(BaseMetric):
     METRIC_NAME = "levenshtein"
 
     def __init__(self, vocab: GenericDecryptVocab) -> None:
+        super().__init__()
         self.vocab = vocab
 
     def __call__(

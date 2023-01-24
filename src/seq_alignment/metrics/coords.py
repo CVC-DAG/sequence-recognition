@@ -14,6 +14,10 @@ class SeqIoU(BaseMetric):
 
     METRIC_NAME = "sequence_iou"
 
+    def __init__(self) -> None:
+        """Initialise Object."""
+        super().__init__()
+
     def __call__(
             self,
             output: List[Dict[str, Any]],

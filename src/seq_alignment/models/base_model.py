@@ -3,9 +3,17 @@
 from typing import Any, Dict
 from warnings import warn
 
+from pydantic import BaseModel as ConfigBaseModel
 import torch
 from torch import nn
+
 from ..data.generic_decrypt import BatchedSample
+
+
+class BaseModelConfig(ConfigBaseModel):
+    """Base configuration for a model."""
+
+    model_name: str
 
 
 class BaseModel(nn.Module):
@@ -16,12 +24,8 @@ class BaseModel(nn.Module):
     """
 
     def __init__(self) -> None:
-        """Initialise BaseModel."""
+        """Initialise Model."""
         super().__init__()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Perform inference on the model."""
-        raise NotImplementedError
 
     def load_weights(self, wpath: str) -> None:
         """Load a set of weights into the model.
@@ -50,13 +54,17 @@ class BaseModel(nn.Module):
         state_dict = self.state_dict()
         torch.save(state_dict, path)
 
-    def compute_batch(self, batch: BatchedSample) -> torch.Tensor:
+    def compute_batch(
+            self, batch: BatchedSample, device: torch.device
+    ) -> torch.Tensor:
         """Generate the model's output for a single input batch.
 
         Parameters
         ----------
         batch_in: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
+        device: torch.device
+            Device where the training is happening in order to move tensors.
 
         Returns
         -------
@@ -66,7 +74,7 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
     def compute_loss(
-        self, batch: BatchedSample, output: torch.Tensor
+        self, batch: BatchedSample, output: torch.Tensor, device: torch.device
     ) -> torch.float32:
         """Generate the model's loss for a single input batch and output.
 
@@ -76,6 +84,8 @@ class BaseModel(nn.Module):
             A model input batch encapsulated in a BatchedSample named tuple.
         output: torch.Tensor
             The output of the model for the input batch.
+        device: torch.device
+            Device where the training is happening in order to move tensors.
 
         Returns
         -------

@@ -25,7 +25,7 @@ from tqdm.auto import tqdm
 import wandb
 
 
-class TrainerConfig(BaseModel):
+class BaseTrainerConfig(BaseModel):
     """Common trainer configuration."""
 
     batch_size: int
@@ -63,7 +63,7 @@ class BaseTrainer:
         model: BaseInferenceModel,
         train_data: D.Dataset,
         loss_func: Callable,
-        config: TrainerConfig,
+        config: BaseTrainerConfig,
         save_path: Path,
         validator: BaseValidator,
         formatter: BaseFormatter,
@@ -80,7 +80,7 @@ class BaseTrainer:
             Dataset to train with.
         loss_func: Callable
 
-        config: TrainerConfig
+        config: BaseTrainerConfig
 
         save_path: Path
 
@@ -116,14 +116,14 @@ class BaseTrainer:
 
     @staticmethod
     def _create_optimizer(
-        config: TrainerConfig,
+        config: BaseTrainerConfig,
         model: BaseInferenceModel,
     ) -> optim.Optimizer:
         """Create an optimizer based on a config object.
 
         Parameters
         ----------
-        config: TrainerConfig
+        config: BaseTrainerConfig
             Configuration object with trainer properties.
 
         Returns
@@ -157,14 +157,14 @@ class BaseTrainer:
 
     @staticmethod
     def _create_plateau(
-        config: TrainerConfig,
+        config: BaseTrainerConfig,
         optimizer: optim.Optimizer,
     ) -> Optional[sched.ReduceLROnPlateau]:
         """Create a Plateau Reduction scheduler based on a config object.
 
         Parameters
         ----------
-        config: TrainerConfig
+        config: BaseTrainerConfig
             Configuration object with trainer properties.
         optimizer: optim.Optimizer
             The optimizer being employed within the trainer.
@@ -190,14 +190,14 @@ class BaseTrainer:
 
     @staticmethod
     def _create_warmup(
-        config: TrainerConfig,
+        config: BaseTrainerConfig,
         optimizer: optim.Optimizer,
     ) -> Optional[sched.LinearLR]:
         """Create a warmup scheduler based on a config object.
 
         Parameters
         ----------
-        config: TrainerConfig
+        config: BaseTrainerConfig
             Configuration object with trainer properties.
         optimizer: Optimizer
             The optimizer being employed within the trainer.
@@ -218,14 +218,14 @@ class BaseTrainer:
 
     @staticmethod
     def _create_cosann(
-        config: TrainerConfig,
+        config: BaseTrainerConfig,
         optimizer: optim.Optimizer,
     ) -> Optional[sched.CosineAnnealingWarmRestarts]:
         """Create a cosine annealing scheduler based on a config object.
 
         Parameters
         ----------
-        config: TrainerConfig
+        config: BaseTrainerConfig
             Configuration object with trainer properties.
         optimizer: optim.Optimizer
             The optimizer being employed within the trainer.
@@ -247,7 +247,7 @@ class BaseTrainer:
         return scheduler
 
     @staticmethod
-    def _create_dataloader(config: TrainerConfig, dataset: D.Dataset) -> D.DataLoader:
+    def _create_dataloader(config: BaseTrainerConfig, dataset: D.Dataset) -> D.DataLoader:
         dataloader = D.DataLoader(
             dataset,
             batch_size=config.batch_size,
@@ -298,16 +298,23 @@ class BaseTrainer:
             for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
 
-                output = self.model.compute_batch(batch)
-                batch_loss = self.model.compute_loss(output, batch)
+                output = self.model.compute_batch(
+                    batch, self.device
+                )
+                batch_loss = self.model.compute_loss(
+                    output, batch, self.device
+                )
+
+                self.optimizer.zero_grad()
+                batch_loss.backward()
+
+                output = output.detach().cpu().numpy()
+
                 results = self.formatter.format(output, batch)
                 metrics = self.metric.measure(results, batch)
 
                 epoch_results.append(results)
                 epoch_metrics.append(metrics)
-
-                self.optimizer.zero_grad()
-                batch_loss.backward()
 
                 if self.config.grad_clip is not None:
                     nn.utils.clip_grad_norm_(
@@ -335,7 +342,9 @@ class BaseTrainer:
                 self.save_current_weights(epoch)
 
             if not epoch % self.config.eval_every:
-                val_loss, val_metric = self.validator.validate(self.model, epoch)
+                val_loss, val_metric = self.validator.validate(
+                    self.model, epoch, self.train_iters, self.device
+                )
 
                 if (self.validator.maximise() and val_metric > self.best_metric) or \
                         not (self.validator.maximise() and val_metric < self.best_metric):

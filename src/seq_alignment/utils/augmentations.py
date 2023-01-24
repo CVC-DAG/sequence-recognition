@@ -7,6 +7,11 @@ from torchvision import transforms as T
 import torchvision.transforms.functional as F
 
 
+PIPELINES = {
+    
+}
+
+
 class Blackout:
     def __call__(self, image):
         return image - image

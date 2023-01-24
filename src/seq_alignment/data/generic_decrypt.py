@@ -24,6 +24,10 @@ import torch
 import torch.utils.data as D
 from torch import TensorType
 
+from pydantic import BaseModel
+
+from ..utils.augmentations import PIPELINES
+
 Coordinate = Tuple[int, int]
 
 
@@ -111,7 +115,12 @@ class GenericDecryptVocab:
         """
         return [self.index2vocab[x] for x in encoded]
 
-    def pad(self, encoded: List[int], pad_len: int, special: bool = False) -> List[int]:
+    def pad(
+            self,
+            encoded: List[int],
+            pad_len: int,
+            special: bool = False
+    ) -> List[int]:
         """Pad input sequence to a fixed width using special tokens.
 
         :param labels: List of indices for a Decrypt transcript.
@@ -163,6 +172,14 @@ class GenericDecryptVocab:
         return data
 
 
+class DataConfig(BaseModel):
+    """Data-Model configuration settings."""
+
+    target_shape: Coordinate
+    target_seqlen: int
+    aug_pipeline: Optional[str]
+
+
 class GenericDecryptDataset(D.Dataset):
     """Performs loading and management of Decrypt-formatted datasets."""
 
@@ -180,29 +197,29 @@ class GenericDecryptDataset(D.Dataset):
             image_folder: str,
             dataset_file: str,
             vocab: GenericDecryptVocab,
-            seqlen: int,
-            target_shape: Coordinate,
-            aug_pipeline: Optional[List[Callable]] = None,
+            config: DataConfig
     ) -> None:
         """Initialise Dataset object.
 
-        :param image_folder: Path where the images of the dataset are stored.
-        :param dataset_file: Path to the json file of the dataset.
-        :param vocab: Decrypt vocabulary object to perform encoding/decoding.
-        :param seqlen: Sequence length to pad the transcripts to.
-        :param target_shape: Desired image size as a (width, height) tuple.
-        :param aug_pipeline: List of augmentations to perform on the loaded
-        Tensor-format image. Resizing, conversion to tensor and normalisation
-        are handled by default.
+        Parameters
+        ----------
+        image_folder: str
+            Path where the images of the dataset are stored.
+        dataset_file: str
+            Path pointing to the dataset json file.
+        vocab: GenericDecryptVocab
+            Vocabulary object to perform conversions.
+        config: DataConfig
+            Dataset config object for model parameters.
         """
         super(GenericDecryptDataset).__init__()
 
         self._samples = []
         self._image_folder = Path(image_folder)  # Images Folder
         self._dataset_file = Path(dataset_file)  # GT File
-        self._seqlen = seqlen
-        self._target_shape = target_shape
-        aug_pipeline = aug_pipeline or []
+        self._seqlen = config.target_seqlen
+        self._target_shape = config.target_shape
+        aug_pipeline = PIPELINES[config.aug_pipeline] or []
         self._aug_pipeline = T.Compose([*aug_pipeline, self.DEFAULT_TRANSFORMS])
 
         with open(self._dataset_file, "r") as f_gt:

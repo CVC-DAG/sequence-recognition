@@ -49,7 +49,9 @@ class BinariseFixed:
 
 class BinariseCustom:
     def __call__(self, image, threshold):
-        return image.convert('L').point(lambda x: int(x < threshold) * 255).convert('RGB')
+        return image.convert('L').point(
+            lambda x: int(x < threshold) * 255
+        ).convert('RGB')
 
 
 class KanungoNoise:
@@ -62,30 +64,30 @@ class KanungoNoise:
             mu=.05,
             k=2
     ) -> None:
-            """ Applies Kanungo noise model to a binary image.
+        """ Applies Kanungo noise model to a binary image.
 
-            T. Kanungo, R. Haralick, H. Baird, W. Stuezle, and D. Madigan.
-            A statistical, nonparametric methodology for document degradation model validation.
-            IEEE Transactions Pattern Analysis and Machine Intelligence 22(11):1209 - 1223, 2000.
+        T. Kanungo, R. Haralick, H. Baird, W. Stuezle, and D. Madigan.
+        A statistical, nonparametric methodology for document degradation model validation.
+        IEEE Transactions Pattern Analysis and Machine Intelligence 22(11):1209 - 1223, 2000.
 
-            Args:
-            img -- 8U1C binary image either [0..1] or [0..255]
-            alpha -- controls the probability of a foreground pixel flip (default = 2.0)
-            alpha_0 --  controls the probability of a foreground pixel flip (default = 1.0)
-            beta -- controls the probability of a background pixel flip (default = 2.0)
-            beta_0 -- controls the probability of a background pixel flip (default = 1.0)
-            mu -- constant probability of flipping for all pixels (default = 0.05)
-            k -- diameter of the disk structuring element for the closing operation (default = 2)
+        Args:
+        img -- 8U1C binary image either [0..1] or [0..255]
+        alpha -- controls the probability of a foreground pixel flip (default = 2.0)
+        alpha_0 --  controls the probability of a foreground pixel flip (default = 1.0)
+        beta -- controls the probability of a background pixel flip (default = 2.0)
+        beta_0 -- controls the probability of a background pixel flip (default = 1.0)
+        mu -- constant probability of flipping for all pixels (default = 0.05)
+        k -- diameter of the disk structuring element for the closing operation (default = 2)
 
-            Returns:
-            out -- 8U1C [0..255], binary image
-            """
-            self.alpha = alpha
-            self.beta = beta
-            self.alpha_0 = alpha_0
-            self.beta_0 = beta_0
-            self.mu = mu
-            self.k = k
+        Returns:
+        out -- 8U1C [0..255], binary image
+        """
+        self.alpha = alpha
+        self.beta = beta
+        self.alpha_0 = alpha_0
+        self.beta_0 = beta_0
+        self.mu = mu
+        self.k = k
 
     def __call__(self, img):
         H, W = img.shape
