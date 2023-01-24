@@ -43,5 +43,3 @@ class ExperimentConfig(BaseModel):
 class BaseExperiment:
     def __init__() -> None:
         ...
-
-
