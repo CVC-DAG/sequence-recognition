@@ -1,24 +1,25 @@
-"""Implementation of a base metric object."""
+"""Coordinate-based metrics."""
 
-from abc import ABC, abstractmethod
+from .base_metric import BaseMetric
 from typing import Any, Dict, List
 
+import numpy as np
 from numpy.typing import ArrayLike
 from ..data.generic_decrypt import BatchedSample
+from ..utils.ops import seqiou
 
 
-class BaseMetric(ABC):
-    """Compute the difference between a set of predictions and the GT."""
+class SeqIoU(BaseMetric):
+    """Sequence-level Intersection over Union metric."""
 
-    METRIC_NAME = "Base Metric"
+    METRIC_NAME = "sequence_iou"
 
-    @abstractmethod
     def __call__(
             self,
             output: List[Dict[str, Any]],
             batch: BatchedSample
     ) -> Dict[str, ArrayLike]:
-        """Compute the difference between a set of predictions and the GT.
+        """Compute the IoU of the output sequences and the ground truth.
 
         Parameters
         ----------
@@ -30,11 +31,16 @@ class BaseMetric(ABC):
         Returns
         -------
         Dict[str, ArrayLike]
-            A value array that measures how far from the GT is each prediction.
+            The IoU for each bounding box for each element in the sequence.
         """
-        raise NotImplementedError
+        out = []
 
-    @abstractmethod
+        for out, gt in zip(output, batch):
+            iou = seqiou(out["prediction"].get_coords(), gt.segm)
+            out.append({"seqiou": iou})
+
+        return out
+
     def maximise(self) -> bool:
         """Return whether this is a maximising metric or not.
 
@@ -43,11 +49,10 @@ class BaseMetric(ABC):
         bool
             True if this is a bigger-is-better metric. False otherwise.
         """
-        raise NotImplementedError
+        return True
 
-    @abstractmethod
     def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
-        """Aggregate a set of predictions from the given metric.
+        """Aggregate a set of predictions to return the average seqiou.
 
         Parameters
         ----------
@@ -57,6 +62,7 @@ class BaseMetric(ABC):
         Returns
         -------
         float
-            An aggregate value summarising the entire prediction.
+            Average of seqiou predictions for all bounding boxes.
         """
-        raise NotImplementedError
+        preds = np.concatenate([pred["seqiou"] for pred in metrics])
+        return np.mean(preds)

@@ -17,7 +17,7 @@ from typing import (
     NamedTuple,
     Optional,
     Tuple,
-    Union
+    Union,
 )
 
 import torch

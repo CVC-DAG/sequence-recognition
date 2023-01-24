@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from ..data.generic_decrypt import BatchedSample, GenericDecryptDataset
 from ..formatters.base_formatter import BaseFormatter
+from ..metrics.base_metric import BaseMetric
 from ..models.base_model import BaseModel as BaseInferenceModel
 from ..validators.base_validator import BaseValidator
 
@@ -66,6 +67,7 @@ class BaseTrainer:
         save_path: Path,
         validator: BaseValidator,
         formatter: BaseFormatter,
+        metric: BaseMetric,
         epoch_end_hook: Optional[Callable[List[Dict], bool]] = None,
     ) -> None:
         """Construct the BaseTrainer object with given params.
@@ -93,7 +95,9 @@ class BaseTrainer:
         self.train_data = self._create_dataloader(self.config, train_data)
         self.loss_func = loss_func
         self.save_path = save_path
-        self.validator = validator(self)
+        self.validator = validator
+        self.formatter = formatter
+        self.metric = metric
 
         self.optimizer = self._create_optimizer(self.config, self.model)
         self.warmup_sched = self._create_warmup(self.config, self.optimizer)
@@ -289,6 +293,7 @@ class BaseTrainer:
             self.model.train()
 
             epoch_results = []
+            epoch_metrics = []
 
             for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
@@ -296,8 +301,10 @@ class BaseTrainer:
                 output = self.model.compute_batch(batch)
                 batch_loss = self.model.compute_loss(output, batch)
                 results = self.formatter.format(output, batch)
+                metrics = self.metric.measure(results, batch)
 
                 epoch_results.append(results)
+                epoch_metrics.append(metrics)
 
                 self.optimizer.zero_grad()
                 batch_loss.backward()

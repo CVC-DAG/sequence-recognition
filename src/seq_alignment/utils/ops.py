@@ -220,7 +220,8 @@ def compare_gt(iou, confidence):
 
 
 def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
-    """
+    """Remove redundant bounding boxes.
+
     Removes overlapping redundant boxes according to confidence values. Labels,
     boxes and confidence are returned to keep the data aligned.
 
@@ -248,7 +249,6 @@ def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
         An array of N' samples with each accepted box's confidence.
     labels: ArrayLike
         An array of N' samples with each accepted box's label.
-
     """
 
     out_box = []
@@ -271,7 +271,7 @@ def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
         out_conf.append(confidence[0])
         out_labels.append(labels[0])
 
-        non_collisions = np.nonzero(iou(box[None,:], boxes, iouthresh).squeeze(axis=0) == 0)[0]
+        non_collisions = np.nonzero(iou(box[None, :], boxes, iouthresh).squeeze(axis=0) == 0)[0]
         boxes = boxes[non_collisions]
         confidence = confidence[non_collisions]
         labels = labels[non_collisions]
@@ -280,9 +280,10 @@ def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
 
 
 def avg_precision(gt, pred):
-    """
+    """Compute the Average Precision of a set of predictions.
+
     Computes the Average Precision of a series of predictions against a ground
-    truth. They should be aligned
+    truth. They should be aligned.
 
     Parameters
     ----------
@@ -319,9 +320,7 @@ def avg_precision(gt, pred):
 
 
 def levenshtein(source, target) -> Tuple[float, List]:
-    """
-    Computes the Levenshtein distance between two strings.
-    """
+    """Compute the Levenshtein distance between two strings."""
     matrix = []
     # if len(source) < len(target):
     # return levenshtein(target, source)

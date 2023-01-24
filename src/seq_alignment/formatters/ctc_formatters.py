@@ -100,5 +100,6 @@ class GreedyTextDecoder(BaseFormatter):
         output = []
         for sample in model_output:
             maximum = sample.argmax(axis=-1)
-            output.append(np.array([k for k, g in groupby(maximum) if k != 0]))
+            output.append(
+                {"text": np.array([k for k, g in groupby(maximum) if k != 0])})
         return output
