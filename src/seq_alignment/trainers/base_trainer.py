@@ -311,7 +311,7 @@ class BaseTrainer:
         """
         output = {}
         for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn] = {"results": rs, "metrics": metrics}
+            output[fn] = {"results": rs, "metrics": mt}
 
         with open(self.save_path / self.json_name(epoch), 'w') as f_json:
             json.dump(output, f_json)
@@ -325,6 +325,7 @@ class BaseTrainer:
 
             epoch_results = []
             epoch_metrics = []
+            fnames = []
 
             for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
@@ -344,8 +345,8 @@ class BaseTrainer:
                 results = self.formatter(output, batch)
                 metrics = self.metric(results, batch)
 
-                epoch_results.append(results)
-                epoch_metrics.append(metrics)
+                epoch_results += results
+                epoch_metrics += metrics
 
                 if self.config.grad_clip is not None:
                     nn.utils.clip_grad_norm_(
@@ -367,7 +368,9 @@ class BaseTrainer:
                     step=self.train_iters,
                 )
 
-            self.log_epoch_results(epoch_results)
+                fnames += batch.filename
+
+            self.log_epoch_results(fnames, epoch_results, epoch_metrics, epoch)
 
             if not epoch % self.config.save_every:
                 self.save_current_weights(epoch)

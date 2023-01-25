@@ -109,11 +109,9 @@ class BaseValidator:
                 results = self.formatter(output, batch)
                 metrics = self.metric(results, batch)
 
-                epoch_results.append(results)
-                epoch_metrics.append(metrics)
-
-                fnames += [x for x in batch.filename]
-
+                epoch_results += results
+                epoch_metrics += metrics
+                fnames += batch.filename
                 loss += batch_loss
 
         final_metric = self.metric.aggregate(epoch_metrics)
@@ -162,7 +160,7 @@ class BaseValidator:
         """
         output = {}
         for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn] = {"results": rs, "metrics": metrics}
+            output[fn] = {"results": rs, "metrics": mt}
 
         with open(self.save_path / self.save_name(epoch), 'w') as f_json:
             json.dump(output, f_json)
