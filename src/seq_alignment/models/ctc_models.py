@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from .base_model import BaseModel as BaseInferenceModel, BaseModelConfig
+from .model_zoo import ModelZoo
 from .cnns import create_resnet, BaroCNN, RESNET_EMBEDDING_SIZES
 from ..data.generic_decrypt import DataConfig, BatchedSample
 
@@ -31,7 +32,7 @@ class CTCModel(BaseInferenceModel):
         output: torch.Tensor
             The output of the model for the input batch.
         """
-        output = self(batch.img.to(self.device))
+        output = self(batch.img.to(device))
 
         return output
 
@@ -53,7 +54,7 @@ class CTCModel(BaseInferenceModel):
             The model's loss for the given input.
         """
         columns = output.shape[0]
-        target_shape = batch.img[0].shape[0]
+        target_shape = batch.img[0].shape[-1]
         input_lengths = batch.curr_shape[0] * (columns / target_shape)
         input_lengths = input_lengths.numpy().astype(int).tolist()
 
@@ -77,8 +78,11 @@ class FullyConvCTCConfig(BaseModelConfig):
     pretrained: bool = True
 
 
+@ModelZoo.register_model
 class FullyConvCTC(CTCModel):
     """A fully convolutional CTC model with convolutional upsampling."""
+
+    MODEL_CONFIG = FullyConvCTCConfig
 
     def __init__(
             self,
@@ -192,19 +196,22 @@ class BaroCRNNConfig(BaseModelConfig):
     output_classes: int
 
 
+@ModelZoo.register_model
 class BaroCRNN(CTCModel):
     """CRNN Model based on Arnau Baró's CTC OMR model."""
 
+    MODEL_CONFIG = BaroCRNNConfig
+
     def __init__(
             self,
-            model_config: FullyConvCTCConfig,
+            model_config: BaroCRNNConfig,
             data_config: DataConfig
     ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
-        config: FullyConvCTCConfig
+        config: BaroCRNNConfig
             Configuration object for the model.
         data_config: DataConfig
             Configuration for input data formatting.
@@ -281,19 +288,22 @@ class ResnetCRNNConfig(BaseModelConfig):
     output_classes: int
 
 
+@ModelZoo.register_model
 class ResnetCRNN(CTCModel):
     """CRNN Model with a ResNet as backcbone."""
 
+    MODEL_CONFIG = ResnetCRNNConfig
+
     def __init__(
             self,
-            model_config: FullyConvCTCConfig,
+            model_config: ResnetCRNNConfig,
             data_config: DataConfig
     ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
-        config: FullyConvCTCConfig
+        config: ResnetCRNNConfig
             Configuration object for the model.
         data_config: DataConfig
             Configuration for input data formatting.

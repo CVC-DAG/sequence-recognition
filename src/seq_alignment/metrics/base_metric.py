@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
 from numpy.typing import ArrayLike
+
 from ..data.generic_decrypt import BatchedSample
 
 

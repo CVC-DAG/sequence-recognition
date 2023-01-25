@@ -12,7 +12,7 @@ from typing import List, Optional, NamedTuple, Tuple
 import numpy as np
 from numpy.typing import ArrayLike
 
-from utils.ops import seqiou, sequiou_multiple
+from .ops import seqiou, sequiou_multiple
 
 
 BLANK_CHARACTER: int = 0

@@ -23,6 +23,8 @@ class BaseModel(nn.Module):
     alignment codebase. The model must own the loss function as well.
     """
 
+    MODEL_CONFIG = BaseModelConfig
+
     def __init__(self) -> None:
         """Initialise Model."""
         super().__init__()

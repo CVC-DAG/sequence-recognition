@@ -8,7 +8,7 @@ from numpy.typing import ArrayLike
 import torch
 from torch import nn
 
-from base_formatter import BaseFormatter
+from .base_formatter import BaseFormatter
 from ..data.generic_decrypt import BatchedSample
 from ..utils.decoding import PrefixTree, Prediction
 

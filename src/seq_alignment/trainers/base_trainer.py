@@ -1,6 +1,7 @@
 """Default trainer implementation."""
 
 import math
+import json
 from pathlib import Path
 from typing import Any, Callable, Tuple, List, Dict, Optional, Type
 
@@ -62,7 +63,6 @@ class BaseTrainer:
         self,
         model: BaseInferenceModel,
         train_data: D.Dataset,
-        loss_func: Callable,
         config: BaseTrainerConfig,
         save_path: Path,
         validator: BaseValidator,
@@ -93,7 +93,6 @@ class BaseTrainer:
 
         self.model = model
         self.train_data = self._create_dataloader(self.config, train_data)
-        self.loss_func = loss_func
         self.save_path = save_path
         self.validator = validator
         self.formatter = formatter
@@ -113,6 +112,11 @@ class BaseTrainer:
         self.curr_name = lambda epoch: f"weights_e{epoch}.pth"
 
         self.best_metric = - math.inf if self.validator.maximise() else math.inf
+
+        self.json_name = lambda epoch: f"log_train_e{epoch}.json"
+
+        self.curr_name = lambda epoch: f"weights_e{epoch}.pth"
+        self.best_name = "weights_BEST.pth"
 
     @staticmethod
     def _create_optimizer(
@@ -285,6 +289,33 @@ class BaseTrainer:
         if prev_weights.exists():
             prev_weights.unlink()
 
+    def log_epoch_results(
+            self,
+            fnames: List[str],
+            results: List[Dict[str, Any]],
+            metrics: List[Dict[str, Any]],
+            epoch: int,
+    ) -> None:
+        """Save results to a JSON file.
+
+        Parameters
+        ----------
+        fnames: List[str]
+            List of filenames to which each information relates to.
+        results: List[Dict[str, Any]]
+            Output for each model.
+        metrics: List[Dict[str, Any]]
+            Metrics comparing the output to the ground truth.
+        epoch: int
+            Epoch number.
+        """
+        output = {}
+        for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
+            output[fn] = {"results": rs, "metrics": metrics}
+
+        with open(self.save_path / self.json_name(epoch), 'w') as f_json:
+            json.dump(output, f_json)
+
     def train(self):
         """Perform training on the model given the trainer configuration."""
         summary(self.model)
@@ -302,7 +333,7 @@ class BaseTrainer:
                     batch, self.device
                 )
                 batch_loss = self.model.compute_loss(
-                    output, batch, self.device
+                    batch, output, self.device
                 )
 
                 self.optimizer.zero_grad()
@@ -310,8 +341,8 @@ class BaseTrainer:
 
                 output = output.detach().cpu().numpy()
 
-                results = self.formatter.format(output, batch)
-                metrics = self.metric.measure(results, batch)
+                results = self.formatter(output, batch)
+                metrics = self.metric(results, batch)
 
                 epoch_results.append(results)
                 epoch_metrics.append(metrics)

@@ -8,7 +8,11 @@ import torchvision.transforms.functional as F
 
 
 PIPELINES = {
-    
+    "basic_decrypt": [
+        T.GaussianBlur(3),
+        T.RandomEqualize(),
+        T.RandomPerspective(fill=255),
+    ]
 }
 
 
@@ -69,7 +73,7 @@ class KanungoNoise:
             mu=.05,
             k=2
     ):
-        """ Applies Kanungo noise model to a binary image.
+        """Apply Kanungo noise model to a binary image.
 
         T. Kanungo, R. Haralick, H. Baird, W. Stuezle, and D. Madigan.
         A statistical, nonparametric methodology for document degradation model

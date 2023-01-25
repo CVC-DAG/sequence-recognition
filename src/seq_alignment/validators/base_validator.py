@@ -106,8 +106,8 @@ class BaseValidator:
 
                 output = output.detach().cpu().numpy()
 
-                results = self.formatter.format(output, batch)
-                metrics = self.metric.measure(results, batch)
+                results = self.formatter(output, batch)
+                metrics = self.metric(results, batch)
 
                 epoch_results.append(results)
                 epoch_metrics.append(metrics)

@@ -39,8 +39,8 @@ class SeqIoU(BaseMetric):
         """
         out = []
 
-        for out, gt in zip(output, batch):
-            iou = seqiou(out["prediction"].get_coords(), gt.segm)
+        for model_out, gt in zip(output, batch.segm):
+            iou = seqiou(model_out["prediction"].get_coords(), gt)
             out.append({"seqiou": iou})
 
         return out

@@ -1,10 +1,11 @@
 """Text-based metrics."""
 
-from .base_metric import BaseMetric
 from typing import Any, Dict, List
 
 import numpy as np
 from numpy.typing import ArrayLike
+
+from .base_metric import BaseMetric
 from ..data.generic_decrypt import BatchedSample, GenericDecryptVocab
 from ..utils.ops import levenshtein
 
@@ -39,8 +40,8 @@ class Levenshtein(BaseMetric):
         """
         out = []
 
-        for out, gt in zip(output, batch):
-            lev = levenshtein(out["text"], self.vocab.unpad(gt.gt))
+        for model_out, gt in zip(output, batch.gt):
+            lev = levenshtein(model_out["text"], self.vocab.unpad(gt))
             out.append({"levenshtein": lev})
 
         return out
