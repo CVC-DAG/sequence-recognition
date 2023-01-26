@@ -29,7 +29,8 @@ class Levenshtein(BaseMetric):
         Parameters
         ----------
         model_output: List[Dict[str, Any]]
-            The output of a model after being properly formatted.
+            The output of a model after being properly formatted. Dicts must
+            contain a "text" key.
         batch: BatchedSample
             Batch information if needed.
 
@@ -41,7 +42,7 @@ class Levenshtein(BaseMetric):
         out = []
 
         for model_out, gt in zip(output, batch.gt):
-            lev = levenshtein(model_out["text"], self.vocab.unpad(gt))
+            lev = levenshtein(model_out["text"], self.vocab.unpad(gt))[0]
             out.append({"levenshtein": lev})
 
         return out

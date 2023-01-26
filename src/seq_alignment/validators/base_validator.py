@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, List, Tuple
+import numpy as np
 
-import tqdm
+from tqdm.auto import tqdm
 import wandb
 
 import torch
@@ -57,7 +58,7 @@ class BaseValidator:
         self.save_path = save_path
         self.mode = mode
 
-        self.save_name = lambda epoch: f"log_{self.mode}_e{epoch}.json"
+        self.save_name = lambda epoch: f"log_{self.mode}_e{epoch:04}.json"
 
     def maximise(self) -> bool:
         """Return whether the underlying metric is maximising."""
@@ -101,27 +102,26 @@ class BaseValidator:
                     self.valid_data,
                     desc=f"{self.mode} for {epoch} in Progress..."
             ):
-                output = self.model.compute_batch(batch, device)
-                batch_loss = self.model.compute_loss(output, batch, device)
+                output = model.compute_batch(batch, device)
+                batch_loss = model.compute_loss(batch, output, device)
 
                 output = output.detach().cpu().numpy()
 
-                results = self.formatter(output, batch)
-                metrics = self.metric(results, batch)
+                results = self.valid_formatter(output, batch)
+                metrics = self.valid_metric(results, batch)
 
                 epoch_results += results
                 epoch_metrics += metrics
                 fnames += batch.filename
                 loss += batch_loss
 
-        final_metric = self.metric.aggregate(epoch_metrics)
+        final_metric = self.valid_metric.aggregate(epoch_metrics)
         loss /= len(self.valid_data)
         wandb.log(
             {
                 "epoch": epoch,
-                "lr": self._get_lr(self.optimizer),
                 f"{self.mode}_loss": batch_loss,
-                self.metric.METRIC_NAME: final_metric,
+                self.valid_metric.METRIC_NAME: final_metric,
             },
             step=iters,
         )
@@ -160,7 +160,20 @@ class BaseValidator:
         """
         output = {}
         for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn] = {"results": rs, "metrics": mt}
+            output[fn] = {
+                "results": self._format_dict(rs),
+                "metrics": self._format_dict(mt),
+            }
 
         with open(self.save_path / self.save_name(epoch), 'w') as f_json:
             json.dump(output, f_json)
+
+    def _format_dict(self, in_dict: Dict) -> Dict:
+        for k, v in in_dict.items():
+            if isinstance(v, dict):
+                in_dict[k] = self._format_dict(v)
+            if isinstance(v, np.ndarray):
+                in_dict[k] = v.tolist()
+            if isinstance(v, torch.Tensor):
+                in_dict[k] = v.detach().cpu().numpy().tolist()
+        return in_dict

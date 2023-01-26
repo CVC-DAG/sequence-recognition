@@ -50,9 +50,10 @@ class OptimalCoordinateDecoder(BaseFormatter):
         model_output = model_output.transpose((1, 0, 2))
         batch_size, columns, classes = model_output.shape
         target_shape = batch.img.shape[-1]
-        widths = batch.curr_shape[0]
+        curr_shape = batch.curr_shape[0].numpy()
+        og_shape = batch.og_shape[0].numpy()
 
-        csizes = [ww * (columns / target_shape) for ww in widths]
+        csizes = (target_shape / columns) * (og_shape / curr_shape)
 
         for mat, transcript, csize in zip(model_output, batch.gt, csizes):
             tree = PrefixTree(
@@ -66,7 +67,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
                 mat,
                 csize,
             )
-            outputs.append({"prediction": prediction})
+            outputs.append({"coords1d": prediction.get_coords()})
         return outputs
 
 

@@ -28,7 +28,8 @@ class SeqIoU(BaseMetric):
         Parameters
         ----------
         model_output: List[Dict[str, Any]]
-            The output of a model after being properly formatted.
+            The output of a model after being properly formatted. Dicts must
+            contain a "coords1d" key.
         batch: BatchedSample
             Batch information if needed.
 
@@ -39,8 +40,8 @@ class SeqIoU(BaseMetric):
         """
         out = []
 
-        for model_out, gt in zip(output, batch.segm):
-            iou = seqiou(model_out["prediction"].get_coords(), gt)
+        for model_out, gt in zip(output, batch.segm.numpy()):
+            iou = seqiou(model_out["coords1d"], gt)
             out.append({"seqiou": iou})
 
         return out

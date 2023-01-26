@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Tuple, List, Dict, Optional, Type
 
+import numpy as np
 import torch
 from torch import nn
 from torch import optim
@@ -109,13 +110,11 @@ class BaseTrainer:
         self.train_iters = 0
 
         self.epoch_end_hook = epoch_end_hook or (lambda x: True)
-        self.curr_name = lambda epoch: f"weights_e{epoch}.pth"
 
         self.best_metric = - math.inf if self.validator.maximise() else math.inf
 
-        self.json_name = lambda epoch: f"log_train_e{epoch}.json"
-
-        self.curr_name = lambda epoch: f"weights_e{epoch}.pth"
+        self.json_name = lambda epoch: f"log_train_e{epoch:04}.json"
+        self.curr_name = lambda epoch: f"weights_e{epoch:04}.pth"
         self.best_name = "weights_BEST.pth"
 
     @staticmethod
@@ -311,10 +310,28 @@ class BaseTrainer:
         """
         output = {}
         for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn] = {"results": rs, "metrics": mt}
+            output[fn] = {
+                "results": self._format_dict(rs),
+                "metrics": self._format_dict(mt),
+            }
 
         with open(self.save_path / self.json_name(epoch), 'w') as f_json:
             json.dump(output, f_json)
+
+    def log_iteration_results(
+            self
+    ) -> None:
+        ...
+
+    def _format_dict(self, in_dict: Dict) -> Dict:
+        for k, v in in_dict.items():
+            if isinstance(v, dict):
+                in_dict[k] = self._format_dict(v)
+            if isinstance(v, np.ndarray):
+                in_dict[k] = v.tolist()
+            if isinstance(v, torch.Tensor):
+                in_dict[k] = v.detach().cpu().numpy().tolist()
+        return in_dict
 
     def train(self):
         """Perform training on the model given the trainer configuration."""
@@ -340,14 +357,6 @@ class BaseTrainer:
                 self.optimizer.zero_grad()
                 batch_loss.backward()
 
-                output = output.detach().cpu().numpy()
-
-                results = self.formatter(output, batch)
-                metrics = self.metric(results, batch)
-
-                epoch_results += results
-                epoch_metrics += metrics
-
                 if self.config.grad_clip is not None:
                     nn.utils.clip_grad_norm_(
                         self.model.parameters(), self.config.grad_clip
@@ -360,6 +369,18 @@ class BaseTrainer:
                 if self.cosann_sched:
                     self.cosann_sched.step()
 
+                # TODO: Encapsulate this in a function and do it asynchronously
+
+                output = output.detach().cpu().numpy()
+
+                results = self.formatter(output, batch)
+                metrics = self.metric(results, batch)
+
+                epoch_results += results
+                epoch_metrics += metrics
+                fnames += batch.filename
+
+                # Maybe not log each iteration
                 wandb.log(
                     {
                         "lr": self._get_lr(self.optimizer),
@@ -368,7 +389,7 @@ class BaseTrainer:
                     step=self.train_iters,
                 )
 
-                fnames += batch.filename
+                # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
             self.log_epoch_results(fnames, epoch_results, epoch_metrics, epoch)
 
