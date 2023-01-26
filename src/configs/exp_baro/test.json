@@ -22,14 +22,14 @@
     },
     "model": {
         "model_name": "baro_crnn",
-        "lstm_hidden_size": 128,
-        "lstm_layers": 4,
+        "lstm_hidden_size": 512,
+        "lstm_layers": 6,
         "blstm": true,
         "dropout": 0.35,
         "output_classes": 130
     },
     "train": {
-        "batch_size": 32,
+        "batch_size": 128,
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 5,
