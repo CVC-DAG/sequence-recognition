@@ -53,7 +53,7 @@ class BaseTrainerConfig(BaseModel):
 
     cosann_sched: bool  # Use cosine annealing scheduler
     cosann_t0: int  # Iters until first restart
-    cosann_factor: int  # Factor by which to increase the number of iters until restart
+    cosann_factor: float  # Factor by which to increase the number of iters until restart
     cosann_min: float  # Min learning rate
 
 
@@ -211,7 +211,7 @@ class BaseTrainer:
             The warmup scheduler if required.
         """
         scheduler = None
-        if config.plateau_sched:
+        if config.warmup_sched:
             scheduler = sched.LinearLR(
                 optimizer=optimizer,
                 start_factor=config.warmup_factor,
@@ -239,7 +239,7 @@ class BaseTrainer:
             The cosine annealing scheduler if required.
         """
         scheduler = None
-        if config.plateau_sched:
+        if config.cosann_sched:
             scheduler = sched.CosineAnnealingWarmRestarts(
                 optimizer=optimizer,
                 T_0=config.cosann_t0,
