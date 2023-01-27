@@ -1,6 +1,6 @@
 """Base model class with QoL functions already implemented."""
 
-from typing import Any, Dict
+from typing import Optional
 from warnings import warn
 
 from pydantic import BaseModel as ConfigBaseModel
@@ -14,6 +14,7 @@ class BaseModelConfig(ConfigBaseModel):
     """Base configuration for a model."""
 
     model_name: str
+    model_weights: Optional[str]
 
 
 class BaseModel(nn.Module):
@@ -25,9 +26,12 @@ class BaseModel(nn.Module):
 
     MODEL_CONFIG = BaseModelConfig
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: BaseModelConfig) -> None:
         """Initialise Model."""
         super().__init__()
+
+        if cfg.model_weights:
+            self.load_weights(cfg.model_weights)
 
     def load_weights(self, wpath: str) -> None:
         """Load a set of weights into the model.

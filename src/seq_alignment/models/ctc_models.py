@@ -12,9 +12,9 @@ from ..data.generic_decrypt import DataConfig, BatchedSample
 class CTCModel(BaseInferenceModel):
     """Model that uses a CTC loss."""
 
-    def __init__(self) -> None:
+    def __init__(self, cfg: BaseModelConfig) -> None:
         """Construct a model with a CTC Loss."""
-        super().__init__()
+        super().__init__(cfg)
         self.loss = nn.CTCLoss()
 
     def compute_batch(
@@ -98,7 +98,8 @@ class FullyConvCTC(CTCModel):
         data_config: DataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config)
+
         self._model_config = model_config
         self._data_config = data_config
         self._backbone = create_resnet(
@@ -216,7 +217,8 @@ class BaroCRNN(CTCModel):
         data_config: DataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config)
+
         self.model_config = model_config
         self.data_config = data_config
 
@@ -308,7 +310,8 @@ class ResnetCRNN(CTCModel):
         data_config: DataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config)
+
         self.model_config = model_config
         self.data_config = data_config
 

@@ -1,6 +1,6 @@
 {
-    "exp_name": "baro_dag001",
-    "description": "Attempt at training a model for longer",
+    "exp_name": "baro_dag002",
+    "description": "Reload the 5-epoch trained model and try to improve it",
     "cipher": "copiale",
     "wandb_mode": "online",
     "wandb_project": "seq-alignment",
