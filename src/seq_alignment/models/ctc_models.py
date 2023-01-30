@@ -220,7 +220,7 @@ class BaroCRNN(CTCModel):
         data_config: DataConfig
             Configuration for input data formatting.
         """
-        super().__init__(model_config)
+        super().__init__()
 
         self.model_config = model_config
         self.data_config = data_config
