@@ -26,12 +26,9 @@ class BaseModel(nn.Module):
 
     MODEL_CONFIG = BaseModelConfig
 
-    def __init__(self, cfg: BaseModelConfig) -> None:
+    def __init__(self) -> None:
         """Initialise Model."""
         super().__init__()
-
-        if cfg.model_weights:
-            self.load_weights(cfg.model_weights)
 
     def load_weights(self, wpath: str) -> None:
         """Load a set of weights into the model.
