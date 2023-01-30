@@ -41,7 +41,7 @@ class SeqIoU(BaseMetric):
         out = []
 
         for model_out, gt in zip(output, batch.segm.numpy()):
-            iou = seqiou(model_out["coords1d"], gt)
+            iou = seqiou(model_out["coords1d"], gt[np.all(gt >= 0, axis=-1)])
             out.append({"seqiou": iou})
 
         return out

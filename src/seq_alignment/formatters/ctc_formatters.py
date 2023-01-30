@@ -9,14 +9,14 @@ import torch
 from torch import nn
 
 from .base_formatter import BaseFormatter
-from ..data.generic_decrypt import BatchedSample
+from ..data.generic_decrypt import BatchedSample, GenericDecryptVocab
 from ..utils.decoding import PrefixTree, Prediction
 
 
 class OptimalCoordinateDecoder(BaseFormatter):
     """From a CTC matrix, get the optimal decoding sequence using the GT."""
 
-    def __init__(self, beam_width: int) -> None:
+    def __init__(self, beam_width: int, vocab: GenericDecryptVocab) -> None:
         """Construct OptimalCoordinateDecoding object.
 
         Parameters
@@ -26,6 +26,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
         """
         super().__init__()
         self.beam_width = beam_width
+        self.vocab = vocab
 
     def __call__(
             self,
@@ -56,6 +57,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
         csizes = (target_shape / columns) * (og_shape / curr_shape)
 
         for mat, transcript, csize in zip(model_output, batch.gt, csizes):
+            transcript = np.array(self.vocab.unpad(transcript.numpy()))
             tree = PrefixTree(
                 transcript,
                 self.beam_width

@@ -62,7 +62,7 @@ class BaroExperiment(Experiment):
         # Formatters
         self.training_formatter = ctc_formatters.GreedyTextDecoder()
         self.valid_formatter = ctc_formatters.OptimalCoordinateDecoder(
-            self.cfg.beam_width
+            self.cfg.beam_width, self.vocab
         )
 
         # Metrics
