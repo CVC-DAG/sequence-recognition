@@ -45,18 +45,21 @@ class BaroExperiment(Experiment):
             self.cfg.dirs.training_file,
             self.vocab,
             self.cfg.data,
+            True,
         )
         self.valid_data = GenericDecryptDataset(
             self.cfg.dirs.validation_root,
             self.cfg.dirs.validation_file,
             self.vocab,
             self.cfg.data,
+            False,
         )
         self.test_data = GenericDecryptDataset(
             self.cfg.dirs.test_root,
             self.cfg.dirs.test_file,
             self.vocab,
             self.cfg.data,
+            False,
         )
 
         # Formatters

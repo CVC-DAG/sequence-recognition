@@ -197,7 +197,8 @@ class GenericDecryptDataset(D.Dataset):
             image_folder: str,
             dataset_file: str,
             vocab: GenericDecryptVocab,
-            config: DataConfig
+            config: DataConfig,
+            train: bool = True,
     ) -> None:
         """Initialise Dataset object.
 
@@ -211,6 +212,8 @@ class GenericDecryptDataset(D.Dataset):
             Vocabulary object to perform conversions.
         config: DataConfig
             Dataset config object for model parameters.
+        train: bool
+            Whether this dataset is used for training purposes.
         """
         super(GenericDecryptDataset).__init__()
 
@@ -219,7 +222,7 @@ class GenericDecryptDataset(D.Dataset):
         self._dataset_file = Path(dataset_file)  # GT File
         self._seqlen = config.target_seqlen
         self._target_shape = config.target_shape
-        aug_pipeline = PIPELINES[config.aug_pipeline] or []
+        aug_pipeline = PIPELINES[config.aug_pipeline] or [] if train else []
         self._aug_pipeline = T.Compose([*aug_pipeline, self.DEFAULT_TRANSFORMS])
 
         with open(self._dataset_file, "r") as f_gt:
