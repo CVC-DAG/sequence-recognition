@@ -213,7 +213,8 @@ class GenericDecryptDataset(D.Dataset):
         config: DataConfig
             Dataset config object for model parameters.
         train: bool
-            Whether this dataset is used for training purposes.
+            Whether this dataset is used for training purposes (in this case it
+            uses data augmentation).
         """
         super(GenericDecryptDataset).__init__()
 
