@@ -145,7 +145,7 @@ def seqiou(bboxes1, bboxes2):
 
 
 def sequiou_multiple(bbox_set: ArrayLike) -> ArrayLike:
-    """Performs iou of multiple sets of boxes.
+    """Perform iou of multiple sets of boxes.
 
     Parameters
     ----------

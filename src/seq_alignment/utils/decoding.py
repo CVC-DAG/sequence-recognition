@@ -32,15 +32,15 @@ class Prediction:
     """Encapsulate a predicted sequence into a single object."""
 
     def __init__(
-            self,
-            coordinates: ArrayLike,
-            confidences: ArrayLike,
-            characters: ArrayLike,
+        self,
+        coordinates: ArrayLike,
+        confidences: ArrayLike,
+        characters: ArrayLike,
     ) -> None:
         """Create a Prediction object.
 
-        :param coordinates: A list of Coordinate objects that represent the
-        starting and ending pixels of a given object in the line.
+        :param coordinates: A list of Coordinate objects that represent the starting and
+        ending pixels of a given object in the line.
         :param confidences: Confidence values for each coordinate tuple.
         :param characters: The character represented in each prediction step.
         """
@@ -57,7 +57,7 @@ class Prediction:
         return str(self)
 
     def __iter__(
-            self,
+        self,
     ) -> Tuple[Coordinate | None, float, int]:
         """Iterate over Prediction elements.
 
@@ -65,29 +65,27 @@ class Prediction:
         and the underlying character at each specific time step.
         """
         for pred, conf, char in zip(
-                self._coordinates,
-                self._confidences,
-                self._characters
+            self._coordinates, self._confidences, self._characters
         ):
             yield pred, conf, char
 
     def compare(
-            self,
-            gt_coordinates: List[Coordinate] | ArrayLike,
+        self,
+        gt_coordinates: List[Coordinate] | ArrayLike,
     ) -> float:
         """Compute the mAP of the prediction against the ground truth.
 
-        :param gt_coordinates: A list of coordinates or an array of shape
-        n_points x 2 where each point has the starting and ending coordinate
-        of a character.
-        :returns: The IoU Array of all bounding boxes in the prediction
-        against all bounding boxes in the ground truth.
+        :param gt_coordinates: A list of coordinates or an array of shape n_points x 2
+        where each point has the starting and ending coordinate of a character.
+        :returns: The IoU Array of all bounding boxes in the prediction against all
+        bounding boxes in the ground truth.
         """
         if isinstance(gt_coordinates, list):
             gt_coordinates = np.array(gt_coordinates)
 
-        assert len(gt_coordinates.shape) == 2 and gt_coordinates.shape[1] == 2, \
-            "Invalid shape for coordinate comparison"
+        assert (
+            len(gt_coordinates.shape) == 2 and gt_coordinates.shape[1] == 2
+        ), "Invalid shape for coordinate comparison"
 
         pred_coordinates = self._coordinates
 
@@ -111,13 +109,12 @@ class Prediction:
     ) -> Prediction:
         """Create Prediction from the output of a PrefixTree CTC decoding.
 
-        :param char_indices: Array containing the class of each CTC column
-        w.r.t. the input ground truth sequence. Essentially, the index of the
-        character in the ground truth sequence.
-        :param gt_sequence: Array containing the ground truth sequence to align
-        to.
-        :param ctc_matrix: (sequence length, batch size, class confidence)
-        matrix produced by a model.
+        :param char_indices: Array containing the class of each CTC column w.r.t. the
+        input ground truth sequence. Essentially, the index of the character in the
+        ground truth sequence.
+        :param gt_sequence: Array containing the ground truth sequence to align to.
+        :param ctc_matrix: (sequence length, batch size, class confidence) matrix
+        produced by a model.
         :param column_size: Size in pixels of each column in the CTC model.
         """
         coordinates = []
@@ -150,9 +147,7 @@ class Prediction:
 
                 # Otherwise keep accumulating confidences
                 else:
-                    partial_confidences.append(
-                        ctc_matrix[ind, gt_sequence[char_index]]
-                    )
+                    partial_confidences.append(ctc_matrix[ind, gt_sequence[char_index]])
         if current_char is not None and start_coordinate != int(ind * column_size):
             characters.append(gt_sequence[current_char])
             coordinates.append(
@@ -166,41 +161,91 @@ class Prediction:
 
         return cls(coordinates, confidences, characters)
 
+    @classmethod
+    def from_text_coords(
+        cls,
+        coords: ArrayLike,
+        gt_sequence: ArrayLike,
+        confidences: Optional[ArrayLike]
+    ) -> Prediction:
+        raise NotImplementedError
+
 
 class PredictionGroup:
     """Aggregate (Ensemble) multiple predictions."""
 
     def __init__(
-            self,
-            predictions: List[Prediction],
-            gt_sequence: str,
-            names: List[str | None] | None = None,
+        self,
+        predictions: List[Prediction],
+        gt_sequence: ArrayLike,
+        names: Optional[List[str | None]]= None,
     ) -> None:
         """Create PredictionGroup object.
 
-        :param predictions: A list of Prediction objects of the same image
-        line. They must contain the same number of elements, as they are
-        produced from the same ground truth sequence as reference.
+        :param predictions: A list of Prediction objects of the same image line. They
+        must contain the same number of elements, as they are produced from the same
+        ground truth sequence as reference.
         :param gt_sequence: The ground truth of the sequence being predicted.
-        :param names: A list of method names to keep track of results in
-        an orderly fashion.
+        :param names: A list of method names to keep track of results in an orderly
+        fashion.
         """
         self._predictions = predictions
         self._gt_sequence = gt_sequence
         self._names = names or [None for _ in predictions]
 
+    def add_prediction(
+        self,
+        prediction: Prediction,
+        name: Optional[str] = None,
+    ) -> None:
+        """Append a prediction to an existing prediction group.
+
+        Parameters
+        ----------
+        prediction: Prediction
+            A prediction to be appended to the group.
+        """
+        self._predictions.append(prediction)
+        self._names.append(name)
+
+    def merge_prediction_groups(
+        self,
+        other: PredictionGroup,
+    ) -> PredictionGroup:
+        """Create a group with the contents of two sets of predictions.
+
+        Parameters
+        ----------
+        other: PredictionGroup
+            A second PredictionGroup to merge the data with.
+        """
+        assert np.all(self._gt_sequence == other._gt_sequence)
+
+        predictions = self._predictions + other._predictions
+        names = self._names + other._names
+
+        return PredictionGroup(predictions, self._gt_sequence, names)
+
     def find_anchors(
-            self,
-            iou_thresh: float,
+        self,
+        iou_thresh: float,
     ) -> Prediction:
         """Compute high-consensus predictions.
 
-        Given a set of predicted alignments, provide the main consensus
-        elements among all methods. The idea is finding those predictions in
-        which plenty of methods agree or whose properties make sense in the
-        overall scheme of things (no huge characters, no missed elements, etc)
+        Given a set of predicted alignments, provide the main consensus elements among
+        all methods. The idea is finding those predictions in which plenty of methods
+        agree or whose properties make sense in the overall scheme of things (no huge
+        characters, no missed elements, etc).
+        
+        Parameters
+        ----------
+        iou_thresh: float
+            The IoU threshold at which to consider valid consensus.
 
-        :returns: A Prediction composed only of the anchor elements.
+        Returns
+        -------
+        Prediction
+            A Prediction composed only of the anchor elements.
         """
         predictions = np.stack([x.get_coords() for x in self._predictions])
         iou_vector = sequiou_multiple(predictions)
@@ -220,18 +265,17 @@ class PrefixNode:
     """Node within a prefix tree with the full parent nodes' transcription."""
 
     def __init__(
-            self,
-            character: int,
-            char_index: int,
-            parent: Optional[PrefixNode],
-            confidence: float,
-            column: int = -1,
+        self,
+        character: int,
+        char_index: int,
+        parent: Optional[PrefixNode],
+        confidence: float,
+        column: int = -1,
     ) -> None:
         """Construct a PrefixNode.
 
         :param character: Character pertaining to the current node.
-        :param char_index: Index of the position of the character in the output
-        string.
+        :param char_index: Index of the position of the character in the output string.
         :param parent: Pointer to the parent node if it exists.
         :param confidence: Cumulative log probability of the sequence after the
         inclusion of this node.
@@ -250,58 +294,56 @@ class PrefixNode:
 
     @property
     def column(
-            self,
+        self,
     ) -> int:
         """Get the depth of this node (CTC Column being decoded)."""
         return self._column
 
     @property
-    def character(
-            self
-    ) -> int:
+    def character(self) -> int:
         """Produce the character associated to this node."""
         return self._character
 
     @character.setter
     def character(
-            self,
-            value: int,
+        self,
+        value: int,
     ) -> None:
         self._character = value
 
     @property
     def char_index(
-            self,
+        self,
     ) -> int:
         """Produce the character index associated to this node."""
         return self._char_index
 
     @char_index.setter
     def char_index(
-            self,
-            value: int,
+        self,
+        value: int,
     ) -> None:
         self._char_index = value
 
     @property
     def confidence(
-            self,
+        self,
     ) -> float:
         """Produce current log likelihood of the prefix tree."""
         return self._confidence
 
     @confidence.setter
     def confidence(
-            self,
-            value: float,
+        self,
+        value: float,
     ) -> float:
         self._confidence = value
 
     def expand(
-            self,
-            character: int,
-            char_index: int,
-            confidence: float,
+        self,
+        character: int,
+        char_index: int,
+        confidence: float,
     ) -> PrefixNode:
         """Add a PrefixNode child to the current node.
 
@@ -321,7 +363,7 @@ class PrefixNode:
         return node
 
     def produce_sequence(
-            self,
+        self,
     ) -> ArrayLike:
         """Produce the sequence associated to this element of the prefix tree.
 
@@ -347,9 +389,9 @@ class PrefixTree:
     """Compute the highest log likelihood decoding of a given GT sequence."""
 
     def __init__(
-            self,
-            output_sequence: ArrayLike,
-            beam_width: int = MAX_WIDTH,
+        self,
+        output_sequence: ArrayLike,
+        beam_width: int = MAX_WIDTH,
     ) -> None:
         """Create a PrefixTree for CTC decoding given the gt sequence.
 
@@ -361,13 +403,7 @@ class PrefixTree:
         """
         self._output_sequence = output_sequence
 
-        first_char = PrefixNode(
-            self._output_sequence[0],
-            0,
-            None,
-            1.0,
-            0
-        )
+        first_char = PrefixNode(self._output_sequence[0], 0, None, 1.0, 0)
         self._beams: List[PrefixNode] = [first_char]
         self._ended: List[PrefixNode] = []
         self._beam_width = beam_width
@@ -389,36 +425,38 @@ class PrefixTree:
 
     def __str__(self) -> str:
         """Get a string representation of the object."""
-        return f"Prefix tree with <={self._beam_width} beams:" + \
-            str([str(x) for x in self._beams])
+        return f"Prefix tree with <={self._beam_width} beams:" + str(
+            [str(x) for x in self._beams]
+        )
 
     def __repr__(self) -> str:
         """Get a string representation of the object."""
         return str(self)
 
-    def _filter_nodes(
-        self,
-        columns: int,
-        nodelist: List[PrefixNode]
-    ) -> None:
+    def _filter_nodes(self, columns: int, nodelist: List[PrefixNode]) -> None:
         alive_nodes = []
 
         for node in nodelist:
-            if node.column == columns - 1 and node.char_index == len(self._output_sequence) - 1:
+            if (
+                node.column == columns - 1
+                and node.char_index == len(self._output_sequence) - 1
+            ):
                 self._ended.append(node)
-            elif len(self._output_sequence) - node.char_index - 1 < (columns - node.column - 1):
+            elif len(self._output_sequence) - node.char_index - 1 < (
+                columns - node.column - 1
+            ):
                 alive_nodes.append(node)
         self._ended.sort(key=lambda x: x.confidence, reverse=True)
         alive_nodes.sort(key=lambda x: x.confidence, reverse=True)
 
         if self._beam_width > 0:
-            alive_nodes = alive_nodes[:self._beam_width]
+            alive_nodes = alive_nodes[: self._beam_width]
 
         self._beams = alive_nodes
 
     def decode(
-            self,
-            ctc_matrix: ArrayLike,
+        self,
+        ctc_matrix: ArrayLike,
     ) -> ArrayLike:
         """Produce the most likely decoding of the gt sequence.
 
@@ -436,26 +474,34 @@ class PrefixTree:
 
                 if not character == BLANK_CHARACTER:
                     # Add same character as current node into the expansion
-                    alive_nodes.append(node.expand(
-                        self._output_sequence[char_index],
-                        char_index,
-                        ctc_matrix[node.column + 1][character],
-                    ))
+                    alive_nodes.append(
+                        node.expand(
+                            self._output_sequence[char_index],
+                            char_index,
+                            ctc_matrix[node.column + 1][character],
+                        )
+                    )
 
                 # Add blank character
-                alive_nodes.append(node.expand(
-                    BLANK_CHARACTER,
-                    char_index,
-                    ctc_matrix[node.column + 1][BLANK_CHARACTER],
-                ))
+                alive_nodes.append(
+                    node.expand(
+                        BLANK_CHARACTER,
+                        char_index,
+                        ctc_matrix[node.column + 1][BLANK_CHARACTER],
+                    )
+                )
 
                 if char_index < len(self._output_sequence) - 1:
                     # Add next character
-                    alive_nodes.append(node.expand(
-                        self._output_sequence[char_index + 1],
-                        char_index + 1,
-                        ctc_matrix[node.column + 1][self._output_sequence[char_index + 1]],
-                    ))
+                    alive_nodes.append(
+                        node.expand(
+                            self._output_sequence[char_index + 1],
+                            char_index + 1,
+                            ctc_matrix[node.column + 1][
+                                self._output_sequence[char_index + 1]
+                            ],
+                        )
+                    )
 
             self._filter_nodes(ctc_matrix.shape[0], alive_nodes)
 
@@ -483,10 +529,7 @@ def decode_ctc(
     batch_size, seqlen, classes = ctc_mat.shape
 
     for mat, transcript, csize in zip(ctc_mat, out_seq, column_size):
-        tree = PrefixTree(
-            transcript,
-            beam_width
-        )
+        tree = PrefixTree(transcript, beam_width)
         decoding = tree.decode(mat)
         prediction = Prediction.from_ctc_decoding(
             decoding,

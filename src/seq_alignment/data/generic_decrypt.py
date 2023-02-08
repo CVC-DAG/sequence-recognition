@@ -39,16 +39,16 @@ class GenericUnloadedSample(NamedTuple):
     gt: ArrayLike
     og_len: int
     segm: ArrayLike
-    filename: str
+    filename: Path
 
 
 class GenericSample(NamedTuple):
     """Represents a sample after the image is loaded."""
 
     gt: ArrayLike
-    og_len: int
+    og_len: int         # Fixme: Should change to the range of valid tokens.
     segm: ArrayLike
-    filename: str
+    filename: Path
 
     img: TensorType
     curr_shape: Coordinate
@@ -58,14 +58,14 @@ class GenericSample(NamedTuple):
 class BatchedSample(NamedTuple):
     """Represents a batch of samples ready for inference."""
 
-    gt: TensorType
-    og_len: TensorType
-    segm: TensorType
-    filename: TensorType
+    gt: Tuple[ArrayLike]
+    og_len: Tuple[int]
+    segm: Tuple[ArrayLike]
+    filename: Tuple[Path]
 
-    img: TensorType
-    curr_shape: TensorType
-    og_shape: TensorType
+    img: Tuple[TensorType]
+    curr_shape: Tuple[Coordinate]
+    og_shape: Tuple[Coordinate]
 
 
 class GenericDecryptVocab:
@@ -247,7 +247,7 @@ class GenericDecryptDataset(D.Dataset):
                     gt=transcript,
                     og_len=og_len,
                     segm=segmentation,
-                    filename=str(self._image_folder / fn),
+                    filename=self._image_folder / fn,
                 )
             )
 
@@ -265,7 +265,7 @@ class GenericDecryptDataset(D.Dataset):
         """
         sample = self._samples[index]
 
-        img = Image.open(sample.filename).convert("RGB")
+        img = Image.open(str(sample.filename)).convert("RGB")
 
         og_shape = img.size
         img_width, img_height = og_shape
@@ -285,7 +285,7 @@ class GenericDecryptDataset(D.Dataset):
         return GenericSample(
             sample.gt,
             sample.og_len,
-            sample.segm,  # normalised_coords,
+            sample.segm,  # (un)normalised_coords,
             sample.filename,
             padded_img,
             new_shape,

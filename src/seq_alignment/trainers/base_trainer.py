@@ -79,16 +79,18 @@ class BaseTrainer:
             The model with which to perform training and inference.
         train_data: D.Dataset
             Dataset to train with.
-        loss_func: Callable
-
         config: BaseTrainerConfig
-
+            Configuration object to set up the Trainer.
         save_path: Path
-
+            Path in which to save partial results or weights.
         validator: BaseValidator
-
+            Validation class encapsulating validation data and operations.
         formatter: BaseFormatter
-
+            An object that will convert the output of the model to whichever format.
+        metric: BaseMetric
+            A metric to keep track of during training.
+        epoch_end_hook: Optional[Callable[List[Dict], bool]] = None,
+            Function to call after each iteration to check whether to keep training.
         """
         self.config = config
 
@@ -290,7 +292,7 @@ class BaseTrainer:
 
     def log_epoch_results(
             self,
-            fnames: List[str],
+            fnames: List[Path],
             results: List[Dict[str, Any]],
             metrics: List[Dict[str, Any]],
             epoch: int,
@@ -299,8 +301,8 @@ class BaseTrainer:
 
         Parameters
         ----------
-        fnames: List[str]
-            List of filenames to which each information relates to.
+        fnames: List[Path]
+            List of full paths to find the original images.
         results: List[Dict[str, Any]]
             Output for each model.
         metrics: List[Dict[str, Any]]
@@ -310,7 +312,7 @@ class BaseTrainer:
         """
         output = {}
         for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn] = {
+            output[fn.name] = {
                 "results": self._format_dict(rs),
                 "metrics": self._format_dict(mt),
             }
