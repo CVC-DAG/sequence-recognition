@@ -9,6 +9,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 from PIL import Image
 from torchvision import transforms as T
+import torchvision.transforms.functional as TF
+
 from typing import (
     AnyStr,
     Callable,
@@ -85,12 +87,8 @@ class GenericDecryptVocab:
         self.tokens = [self.blank, self.go_tok, self.stop_tok, self.pad_tok]
         self.vocab = self.tokens + jlabels["labels"]
 
-        self.vocab2index = {
-            x: ii for ii, x in enumerate(self.vocab)
-        }
-        self.index2vocab = {
-            v: k for k, v in self.vocab2index.items()
-        }
+        self.vocab2index = {x: ii for ii, x in enumerate(self.vocab)}
+        self.index2vocab = {v: k for k, v in self.vocab2index.items()}
 
     def __len__(self):
         """Get the number of tokens in the vocabulary.
@@ -115,12 +113,7 @@ class GenericDecryptVocab:
         """
         return [self.index2vocab[x] for x in encoded]
 
-    def pad(
-            self,
-            encoded: List[int],
-            pad_len: int,
-            special: bool = False
-    ) -> List[int]:
+    def pad(self, encoded: List[int], pad_len: int, special: bool = False) -> List[int]:
         """Pad input sequence to a fixed width using special tokens.
 
         :param labels: List of indices for a Decrypt transcript.
@@ -132,11 +125,15 @@ class GenericDecryptVocab:
         """
         assert len(encoded) + 2 <= pad_len
         if special:
-            return [self.vocab2index[self.go_tok]] \
-                + encoded \
-                + [self.vocab2index[self.stop_tok]] \
-                + [self.vocab2index[self.pad_tok]
-                   for _ in range(pad_len - len(encoded) - 2)]
+            return (
+                [self.vocab2index[self.go_tok]]
+                + encoded
+                + [self.vocab2index[self.stop_tok]]
+                + [
+                    self.vocab2index[self.pad_tok]
+                    for _ in range(pad_len - len(encoded) - 2)
+                ]
+            )
         else:
             return encoded + (
                 [self.vocab2index[self.pad_tok]] * (pad_len - len(encoded))
@@ -153,8 +150,10 @@ class GenericDecryptVocab:
         for x in padded:
             if x == self.vocab2index[self.stop_tok]:
                 break
-            if x == self.vocab2index[self.pad_tok] or \
-                    x == self.vocab2index[self.go_tok]:
+            if (
+                x == self.vocab2index[self.pad_tok]
+                or x == self.vocab2index[self.go_tok]
+            ):
                 continue
             output.append(x)
         return output
@@ -178,27 +177,27 @@ class DataConfig(BaseModel):
     target_shape: Coordinate
     target_seqlen: int
     aug_pipeline: Optional[str]
+    hflip: bool = False
 
 
 class GenericDecryptDataset(D.Dataset):
     """Performs loading and management of Decrypt-formatted datasets."""
 
-    DEFAULT_TRANSFORMS = T.Compose([
-        T.ToTensor(),
-        T.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225]
-        )
-    ])
+    DEFAULT_TRANSFORMS = T.Compose(
+        [
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
     RE_SEPARATOR = re.compile(" ")
 
     def __init__(
-            self,
-            image_folder: str,
-            dataset_file: str,
-            vocab: GenericDecryptVocab,
-            config: DataConfig,
-            train: bool = True,
+        self,
+        image_folder: str,
+        dataset_file: str,
+        vocab: GenericDecryptVocab,
+        config: DataConfig,
+        train: bool = True,
     ) -> None:
         """Initialise Dataset object.
 
@@ -213,8 +212,8 @@ class GenericDecryptDataset(D.Dataset):
         config: DataConfig
             Dataset config object for model parameters.
         train: bool
-            Whether this dataset is used for training purposes (in this case it
-            uses data augmentation).
+            Whether this dataset is used for training purposes (in which case data
+            augmentation is enabled).
         """
         super(GenericDecryptDataset).__init__()
 
@@ -223,7 +222,11 @@ class GenericDecryptDataset(D.Dataset):
         self._dataset_file = Path(dataset_file)  # GT File
         self._seqlen = config.target_seqlen
         self._target_shape = config.target_shape
+        self._hflip = config.hflip
+
         aug_pipeline = PIPELINES[config.aug_pipeline] or [] if train else []
+        if self._hflip:
+            aug_pipeline.append(TF.hflip)
         self._aug_pipeline = T.Compose([*aug_pipeline, self.DEFAULT_TRANSFORMS])
 
         with open(self._dataset_file, "r") as f_gt:
@@ -231,19 +234,22 @@ class GenericDecryptDataset(D.Dataset):
 
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
-            segmentation = sample["segm"] + \
-                ([[-1, -1]] * (self._seqlen - len(sample["segm"])))
+            segmentation = sample["segm"] + (
+                [[-1, -1]] * (self._seqlen - len(sample["segm"]))
+            )
             segmentation = np.array(segmentation, dtype=int)
 
             og_len = len(transcript)
             transcript = vocab.prepare_data(transcript, self._seqlen)
 
-            self._samples.append(GenericUnloadedSample(
-                gt=transcript,
-                og_len=og_len,
-                segm=segmentation,
-                filename=str(self._image_folder / fn),
-            ))
+            self._samples.append(
+                GenericUnloadedSample(
+                    gt=transcript,
+                    og_len=og_len,
+                    segm=segmentation,
+                    filename=str(self._image_folder / fn),
+                )
+            )
 
     def __len__(self) -> int:
         """Get the number of samples in the dataset.
@@ -259,7 +265,7 @@ class GenericDecryptDataset(D.Dataset):
         """
         sample = self._samples[index]
 
-        img = Image.open(sample.filename).convert('RGB')
+        img = Image.open(sample.filename).convert("RGB")
 
         og_shape = img.size
         img_width, img_height = og_shape

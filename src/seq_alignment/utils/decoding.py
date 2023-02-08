@@ -49,9 +49,11 @@ class Prediction:
         self._characters = characters
 
     def __str__(self) -> str:
+        """Return a string representation of the prediction object."""
         return f"Prediction with coordinates:\n{str(self._coordinates)}"
 
     def __repr__(self) -> str:
+        """Return a string representation of the prediction object."""
         return str(self)
 
     def __iter__(
@@ -99,12 +101,13 @@ class Prediction:
         """Return the predicted pixel coordinates."""
         return self._coordinates
 
-    @staticmethod
+    @classmethod
     def from_ctc_decoding(
-            char_indices: ArrayLike,
-            gt_sequence: ArrayLike,
-            ctc_matrix: ArrayLike,
-            column_size: float,
+        cls,
+        char_indices: ArrayLike,
+        gt_sequence: ArrayLike,
+        ctc_matrix: ArrayLike,
+        column_size: float,
     ) -> Prediction:
         """Create Prediction from the output of a PrefixTree CTC decoding.
 
@@ -161,7 +164,7 @@ class Prediction:
         confidences = np.array(confidences)
         characters = np.array(characters)
 
-        return Prediction(coordinates, confidences, characters)
+        return cls(coordinates, confidences, characters)
 
 
 class PredictionGroup:
@@ -242,7 +245,7 @@ class PrefixNode:
     def __str__(self) -> str:
         return f"Prefix Node: index {self._char_index} conf {self._confidence}"
 
-    def repr(self) -> str:
+    def __repr__(self) -> str:
         return str(self)
 
     @property
