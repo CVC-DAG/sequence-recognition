@@ -225,8 +225,6 @@ class GenericDecryptDataset(D.Dataset):
         self._hflip = config.hflip
 
         aug_pipeline = PIPELINES[config.aug_pipeline] or [] if train else []
-        if self._hflip:
-            aug_pipeline.append(TF.hflip)
         self._aug_pipeline = T.Compose([*aug_pipeline, self.DEFAULT_TRANSFORMS])
 
         with open(self._dataset_file, "r") as f_gt:
@@ -266,6 +264,8 @@ class GenericDecryptDataset(D.Dataset):
         sample = self._samples[index]
 
         img = Image.open(str(sample.filename)).convert("RGB")
+        if self._hflip:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
 
         og_shape = img.size
         img_width, img_height = og_shape
@@ -280,7 +280,8 @@ class GenericDecryptDataset(D.Dataset):
 
         padded_img = self._aug_pipeline(padded_img)
 
-        # normalised_coords = (sample.segm * factor) / tgt_width
+        if self._hflip:
+            ...
 
         return GenericSample(
             sample.gt,

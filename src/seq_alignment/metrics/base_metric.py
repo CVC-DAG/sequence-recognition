@@ -11,7 +11,8 @@ from ..data.generic_decrypt import BatchedSample
 class BaseMetric(ABC):
     """Compute the difference between a set of predictions and the GT."""
 
-    METRIC_NAME = "Base Metric"
+    METRIC_NAME = "base_metric"
+    KEYS = [METRIC_NAME]
 
     @abstractmethod
     def __call__(
@@ -61,3 +62,13 @@ class BaseMetric(ABC):
             An aggregate value summarising the entire prediction.
         """
         raise NotImplementedError
+
+    def keys(self) -> List[str]:
+        """Return the list of dictionary keys associated with this metric.
+
+        Returns
+        -------
+        List[str]
+            The list of keys this metric can generate.
+        """
+        return self.KEYS

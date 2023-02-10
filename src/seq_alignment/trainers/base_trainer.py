@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch import optim
+from torch import TensorType
 from torch.optim import lr_scheduler as sched
 from torch.utils import data as D
 
@@ -335,6 +336,9 @@ class BaseTrainer:
                 in_dict[k] = v.detach().cpu().numpy().tolist()
         return in_dict
 
+    def _process_and_log(self, output: TensorType, batch: BatchedSample) -> None:
+        ...
+
     def train(self):
         """Perform training on the model given the trainer configuration."""
         summary(self.model)
@@ -371,6 +375,15 @@ class BaseTrainer:
                 if self.cosann_sched:
                     self.cosann_sched.step()
 
+                # Maybe not log each iteration
+                wandb.log(
+                    {
+                        "lr": self._get_lr(self.optimizer),
+                        "train_loss": batch_loss,
+                    },
+                    step=self.train_iters,
+                )
+
                 # TODO: Encapsulate this in a function and do it asynchronously
 
                 output = output.detach().cpu().numpy()
@@ -381,15 +394,6 @@ class BaseTrainer:
                 epoch_results += results
                 epoch_metrics += metrics
                 fnames += batch.filename
-
-                # Maybe not log each iteration
-                wandb.log(
-                    {
-                        "lr": self._get_lr(self.optimizer),
-                        "train_loss": batch_loss,
-                    },
-                    step=self.train_iters,
-                )
 
                 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 

@@ -16,6 +16,10 @@ from ..utils.decoding import PrefixTree, Prediction
 class OptimalCoordinateDecoder(BaseFormatter):
     """From a CTC matrix, get the optimal decoding sequence using the GT."""
 
+    KEY_COORD1D = "coords1d"
+    KEY_COORD1D_CONF = "coords1d_confidences"
+    KEYS = [KEY_COORD1D, KEY_COORD1D_CONF]
+
     def __init__(self, beam_width: int, vocab: GenericDecryptVocab) -> None:
         """Construct OptimalCoordinateDecoding object.
 
@@ -69,12 +73,17 @@ class OptimalCoordinateDecoder(BaseFormatter):
                 mat,
                 csize,
             )
-            outputs.append({"coords1d": prediction.get_coords()})
+            outputs.append({self.KEY_COORD1D: prediction.get_coords(),
+                            self.KEY_COORD1D_CONF: prediction.get_confidences()})
         return outputs
 
 
 class GreedyTextDecoder(BaseFormatter):
     """Generate an unpadded token sequence from a CTC output."""
+
+    KEY_TEXT = "coords1d"
+    KEY_TEXT_CONF = "coords1d_confidences"
+    KEYS = [KEY_TEXT, KEY_TEXT_CONF]
 
     def __init__(self) -> None:
         """Construct GreedyTextDecoder object."""
@@ -90,19 +99,25 @@ class GreedyTextDecoder(BaseFormatter):
         Parameters
         ----------
         model_output: torch.Tensor
-            The output of a model.
+            The output of a CTC model. Should be a L x B x C matrix, where L is the
+            sequence length, B is the batch size and C is the number of classes.
         batch: BatchedSample
             Batch information.
 
         Returns
         -------
         List[Dict[str, ArrayLike]]
-            A List of sequences of tokens corresponding to the decoded output.
+            A List of sequences of tokens corresponding to the decoded output and the
+            output confidences encapsulated within a dictionary.
         """
         model_output = model_output.transpose((1, 0, 2))
+        indices = model_output.argmax(axis=-1)
         output = []
-        for sample in model_output:
-            maximum = sample.argmax(axis=-1)
-            output.append(
-                {"text": np.array([k for k, g in groupby(maximum) if k != 0])})
+
+        for sample, mat in zip(indices, model_output):
+            nonzero = sample != 0
+            text_ind = sample[nonzero]
+            text_cnf = mat[nonzero]
+            output.append({self.KEY_TEXT: text_ind,
+                           self.KEY_TEXT_CONF: text_cnf})
         return output

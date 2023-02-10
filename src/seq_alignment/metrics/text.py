@@ -14,6 +14,8 @@ class Levenshtein(BaseMetric):
     """Levenshtein metric."""
 
     METRIC_NAME = "levenshtein"
+    KEYS = [METRIC_NAME]
+    AGG_KEYS = []
 
     def __init__(self, vocab: GenericDecryptVocab) -> None:
         super().__init__()
@@ -41,8 +43,8 @@ class Levenshtein(BaseMetric):
         """
         out = []
 
-        for model_out, gt in zip(output, batch.gt):
-            lev = levenshtein(model_out["text"], self.vocab.unpad(gt))[0]
+        for model_out, gt, ln in zip(output, batch.gt, batch.og_len):
+            lev = levenshtein(model_out["text"], gt[:ln])[0]
             out.append({"levenshtein": lev})
 
         return out

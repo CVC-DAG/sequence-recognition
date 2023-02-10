@@ -12,6 +12,8 @@ from ..data.generic_decrypt import BatchedSample
 class BaseFormatter(ABC):
     """Abstracts converting from a model output to the desired format."""
 
+    KEYS = []
+
     @abstractmethod
     def __call__(
             self,
@@ -34,3 +36,13 @@ class BaseFormatter(ABC):
             techniques and the values are the formatted outputs.
         """
         raise NotImplementedError
+
+    def keys(self) -> List[str]:
+        """Return the list of dictionary keys associated with this formatter.
+
+        Returns
+        -------
+        List[str]
+            The list of keys this formatter can generate.
+        """
+        return self.KEYS

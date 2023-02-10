@@ -99,6 +99,10 @@ class Prediction:
         """Return the predicted pixel coordinates."""
         return self._coordinates
 
+    def get_confidences(self) -> ArrayLike:
+        """Return the confidences for all predictions."""
+        return self._confidences
+
     @classmethod
     def from_ctc_decoding(
         cls,
@@ -164,10 +168,21 @@ class Prediction:
     @classmethod
     def from_text_coords(
         cls,
-        coords: ArrayLike,
-        gt_sequence: ArrayLike,
-        confidences: Optional[ArrayLike]
+        coordinates: ArrayLike,
+        confidences: ArrayLike,
+        characters: ArrayLike,
     ) -> Prediction:
+        """Create a prediction from an input file's data.
+
+        Parameters
+        ----------
+        coordinates: ArrayLike
+            A N x 2 array with start-end coordinates for every character.
+        confidences: Optional[ArrayLike]
+            The confidence value for each bounding box prediction.
+        characters: ArrayLike
+            The encoded ground truth sequence fed within an array.
+        """
         raise NotImplementedError
 
 
@@ -192,6 +207,10 @@ class PredictionGroup:
         self._predictions = predictions
         self._gt_sequence = gt_sequence
         self._names = names or [None for _ in predictions]
+
+    def __len__(self) -> int:
+        """Return the number of predictions within the group."""
+        return len(self._predictions)
 
     def add_prediction(
         self,
@@ -219,7 +238,10 @@ class PredictionGroup:
         other: PredictionGroup
             A second PredictionGroup to merge the data with.
         """
-        assert np.all(self._gt_sequence == other._gt_sequence)
+        assert len(self._gt_sequence) == len(other._gt_sequence), \
+            "Predictions from different ground truth sequences."
+        assert np.all(self._gt_sequence == other._gt_sequence), \
+            "Predictions from different ground truth sequences."
 
         predictions = self._predictions + other._predictions
         names = self._names + other._names

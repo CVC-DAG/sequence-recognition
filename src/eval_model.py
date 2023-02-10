@@ -6,6 +6,8 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Dict
 
+import numpy as np
+
 from seq_alignment.models.model_zoo import ModelZoo
 from seq_alignment.utils.decoding import Prediction, PredictionGroup
 
@@ -25,7 +27,11 @@ class AlignmentEvaluator:
             pred_file = json.load(f_in)
 
         for k, v in pred_file.items():
-            prediction = Prediction.from_text_coords(v["coords1d"], v["gt_seq"])
+            prediction = Prediction.from_text_coords(
+                v["coords1d"],
+                v["confidences"],
+                v["gt_seq"],
+            )
             try:
                 groups[k] = groups[k].add_prediction(prediction)
             except KeyError:

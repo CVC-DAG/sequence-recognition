@@ -64,6 +64,9 @@ class BaseValidator:
         """Return whether the underlying metric is maximising."""
         return self.valid_metric.maximise()
 
+    def _transform_and_log(self) -> None:
+        ...
+
     def validate(
             self,
             model: nn.Module,
@@ -129,10 +132,7 @@ class BaseValidator:
         self.log_results(fnames, epoch_results, epoch_metrics, epoch)
 
         try:
-            first_key = list(final_metric.keys())
-            first_key.sort()
-            first_key = first_key[0]
-            final_metric = final_metric[first_key]
+            final_metric = next(final_metric.values())
         except AttributeError:
             ...
 

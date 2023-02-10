@@ -1,6 +1,7 @@
 """Miscellaneous metric utilities."""
 
 from typing import Any, Dict, List
+from warnings import warn
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -17,6 +18,9 @@ class Compose(BaseMetric):
     def __init__(self, metrics: List[BaseMetric]):
         """Initialise composition of metrics.
 
+        The first metric in the list is the one that shall be used for optimisation
+        criteria during training.
+
         Parameters
         ----------
         metrics: List[BaseMetric]
@@ -24,6 +28,14 @@ class Compose(BaseMetric):
         """
         super().__init__()
         self.metrics = metrics
+
+        self.KEYS = [x for mtr in self.metrics for x in mtr.KEYS]
+        self.AGG_KEYS = [x for mtr in self.metrics for x in mtr.AGG_KEYS]
+
+        if len(set(self.KEYS)) != self.KEYS:
+            warn("There are duplicate key names within the composition metric."
+                 "This will lead to some results being overwritten. Double check "
+                 "your class definitions for metrics.")
 
     def __call__(
             self,
@@ -55,13 +67,17 @@ class Compose(BaseMetric):
                 output = [old | curr for old, curr in zip(output, current)]
         return output
 
+    def maximise(self) -> bool:
+        """Return whether the first metric is maximising or not."""
+        return self.metrics[0].maximise()
+
     def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
         """Aggregate a set of predictions to return the average edit distance.
 
         Parameters
         ----------
         metrics: Dict[str, ArrayLike]
-            List of predictions from the metric.
+            Array of predictions from the metric.
 
         Returns
         -------
@@ -74,3 +90,6 @@ class Compose(BaseMetric):
             output[metric.METRIC_NAME] = metric.aggregate(metrics)
 
         return output
+
+    def keys(self) -> List[str]:
+        return 

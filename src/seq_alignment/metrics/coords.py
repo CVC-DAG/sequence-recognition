@@ -12,7 +12,9 @@ from ..utils.ops import seqiou
 class SeqIoU(BaseMetric):
     """Sequence-level Intersection over Union metric."""
 
-    METRIC_NAME = "sequence_iou"
+    METRIC_NAME = "seqiou"
+    KEYS = [METRIC_NAME]
+    AGG_KEYS = []
 
     def __init__(self) -> None:
         """Initialise Object."""
@@ -40,8 +42,8 @@ class SeqIoU(BaseMetric):
         """
         out = []
 
-        for model_out, gt in zip(output, batch.segm.numpy()):
-            iou = seqiou(model_out["coords1d"], gt[np.all(gt >= 0, axis=-1)])
+        for model_out, gt, ln in zip(output, batch.segm.numpy(), batch.og_len):
+            iou = seqiou(model_out["coords1d"], gt[:ln])
             out.append({"seqiou": iou})
 
         return out
