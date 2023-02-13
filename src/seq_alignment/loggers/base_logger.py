@@ -12,7 +12,45 @@ from seq_alignment.metrics.base_metric import BaseMetric
 from seq_alignment.formatters.base_formatter import BaseFormatter
 
 
-class BaseLogger:
+class BaseLogger(ABC):
+    """Logger class for run information."""
+
+    @abstractmethod
+    def process_and_log(
+        self,
+        output: Any,
+        batch: BatchedSample,
+    ) -> None:
+        """Process a batch of model outputs and log them to a file.
+
+        Parameters
+        ----------
+        output: Any
+            The output for a single batch of the model. Must be batch-wise iterable.
+        batch: BatchedSample
+            An input batch with ground truth and filename data.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def aggregate(self) -> Dict[str, Any]:
+        """Aggregate logged metrics.
+
+        Returns
+        -------
+        Dict[str: Any]
+            A dict whose keys are aggregate names and values are the aggregations of
+            values related to a metric.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def close(self):
+        """Cleanup logger class and close all related files."""
+        raise NotImplementedError
+
+
+class SimpleLogger(BaseLogger):
     """Logger class for run information."""
 
     def __init__(
@@ -39,18 +77,20 @@ class BaseLogger:
             or if this is the final output for some task, but not much during training
             aside from generating tons of superfluous data).
         """
+        super().__init__()
         self._path = path
         self._formatter = formatter
         self._metric = metric
         self._log_results = log_results
 
         self._metric_paths = {
-            open(self._path / (name + ".npz"), "rw") for name in self._metric.keys()
+            name: open(self._path / (name + ".npz"), "rw")
+            for name in self._metric.keys()
         }
 
         if self._log_results:
             self._result_paths = {
-                open(self._path / (name + ".npz"), "rw")
+                name:  open(self._path / (name + ".npz"), "rw")
                 for name in self._formatter.keys()
             }
 

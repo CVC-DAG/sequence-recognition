@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, List, Tuple, Type
 import numpy as np
 
 from tqdm.auto import tqdm
@@ -12,6 +12,8 @@ from torch.utils import data as D
 
 from ..formatters.base_formatter import BaseFormatter
 from ..metrics.base_metric import BaseMetric
+from ..loggers.base_logger import BaseLogger
+from ..loggers.async_logger import AsyncLogger
 
 
 class BaseValidator:
@@ -26,6 +28,7 @@ class BaseValidator:
             batch_size: int,
             workers: int,
             mode: str,
+            logger: Type[BaseLogger] = AsyncLogger,
     ) -> None:
         """Construct validator.
 
@@ -45,6 +48,8 @@ class BaseValidator:
             Number of workers for the dataloader.
         mode: str
             Validation or test.
+        logger: Type[BaseLogger] = AsyncLogger
+            A logging class to save results or measure stuff.
         """
         self.valid_data = D.DataLoader(
             valid_data,
@@ -57,15 +62,13 @@ class BaseValidator:
         self.valid_metric = valid_metric
         self.save_path = save_path
         self.mode = mode
+        self.workers = workers
 
-        self.save_name = lambda epoch: f"log_{self.mode}_e{epoch:04}.json"
+        self.logger_type = logger
 
     def maximise(self) -> bool:
         """Return whether the underlying metric is maximising."""
         return self.valid_metric.maximise()
-
-    def _transform_and_log(self) -> None:
-        ...
 
     def validate(
             self,
@@ -95,9 +98,16 @@ class BaseValidator:
         with torch.no_grad():
             model.eval()
 
-            fnames = []
-            epoch_results = []
-            epoch_metrics = []
+            log_path = self.save_path / f"e{epoch}_valid"
+
+            logger = self.logger_type(
+                log_path,
+                self.valid_formatter,
+                self.valid_metric,
+                self.workers,
+                True,
+            )
+            log_path.mkdir(exist_ok=True)
 
             loss = 0.0
 
@@ -109,71 +119,19 @@ class BaseValidator:
                 batch_loss = model.compute_loss(batch, output, device)
 
                 output = output.detach().cpu().numpy()
+                logger.process_and_log(output, batch)
 
-                results = self.valid_formatter(output, batch)
-                metrics = self.valid_metric(results, batch)
+        logger.close()
+        agg_metrics = logger.aggregate()
+        final_metric = agg_metrics[iter(next(agg_metrics))]
 
-                epoch_results += results
-                epoch_metrics += metrics
-                fnames += batch.filename
-                loss += batch_loss
-
-        final_metric = self.valid_metric.aggregate(epoch_metrics)
         loss /= len(self.valid_data)
         wandb.log(
             {
                 "epoch": epoch,
                 f"{self.mode}_loss": batch_loss,
-                self.valid_metric.METRIC_NAME: final_metric,
-            },
+            } | {f"{self.mode}_{k}": v for k, v in agg_metrics.items()},
             step=iters,
         )
 
-        self.log_results(fnames, epoch_results, epoch_metrics, epoch)
-
-        try:
-            final_metric = next(final_metric.values())
-        except AttributeError:
-            ...
-
         return loss, final_metric
-
-    def log_results(
-            self,
-            fnames: List[str],
-            results: List[Dict[str, Any]],
-            metrics: List[Dict[str, Any]],
-            epoch: int,
-    ) -> None:
-        """Save results to a JSON file.
-
-        Parameters
-        ----------
-        fnames: List[str]
-            List of filenames to which each information relates to.
-        results: List[Dict[str, Any]]
-            Output for each model.
-        metrics: List[Dict[str, Any]]
-            Metrics comparing the output to the ground truth.
-        epoch: int
-            Epoch number.
-        """
-        output = {}
-        for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn] = {
-                "results": self._format_dict(rs),
-                "metrics": self._format_dict(mt),
-            }
-
-        with open(self.save_path / self.save_name(epoch), 'w') as f_json:
-            json.dump(output, f_json)
-
-    def _format_dict(self, in_dict: Dict) -> Dict:
-        for k, v in in_dict.items():
-            if isinstance(v, dict):
-                in_dict[k] = self._format_dict(v)
-            if isinstance(v, np.ndarray):
-                in_dict[k] = v.tolist()
-            if isinstance(v, torch.Tensor):
-                in_dict[k] = v.detach().cpu().numpy().tolist()
-        return in_dict

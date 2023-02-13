@@ -2,7 +2,9 @@
 
 import math
 import json
+from collections import deque
 from pathlib import Path
+from shutil import rmtree
 from typing import Any, Callable, Tuple, List, Dict, Optional, Type
 
 import numpy as np
@@ -19,6 +21,8 @@ from pydantic import BaseModel
 
 from ..data.generic_decrypt import BatchedSample, GenericDecryptDataset
 from ..formatters.base_formatter import BaseFormatter
+from ..loggers.base_logger import BaseLogger
+from ..loggers.async_logger import AsyncLogger
 from ..metrics.base_metric import BaseMetric
 from ..models.base_model import BaseModel as BaseInferenceModel
 from ..validators.base_validator import BaseValidator
@@ -57,6 +61,9 @@ class BaseTrainerConfig(BaseModel):
     cosann_factor: float  # Factor by which to increase the number of iters until restart
     cosann_min: float  # Min learning rate
 
+    max_logging_epochs: int = 2
+    logging_threads: int = 4
+
 
 class BaseTrainer:
     """Implements default training loop and methods."""
@@ -71,6 +78,7 @@ class BaseTrainer:
         formatter: BaseFormatter,
         metric: BaseMetric,
         epoch_end_hook: Optional[Callable[List[Dict], bool]] = None,
+        logger: Type[BaseLogger] = AsyncLogger,
     ) -> None:
         """Construct the BaseTrainer object with given params.
 
@@ -108,6 +116,8 @@ class BaseTrainer:
         self.plateau_sched = self._create_plateau(self.config, self.optimizer)
         self.device = torch.device(self.config.device)
 
+        self.logger_type = logger
+
         self.model = self.model.to(self.device)
 
         self.train_iters = 0
@@ -116,7 +126,6 @@ class BaseTrainer:
 
         self.best_metric = - math.inf if self.validator.maximise() else math.inf
 
-        self.json_name = lambda epoch: f"log_train_e{epoch:04}.json"
         self.curr_name = lambda epoch: f"weights_e{epoch:04}.pth"
         self.best_name = "weights_BEST.pth"
 
@@ -269,10 +278,6 @@ class BaseTrainer:
             return param_group["lr"]
         return 0.0
 
-    def should_training_stop(self, epoch: int, epoch_results: List[Dict]) -> bool:
-        """Assess whether the training should be stopped after an epoch."""
-        return False
-
     def save_current_weights(self, epoch: int) -> None:
         """Save current epoch model weights to trainer save directory.
 
@@ -291,64 +296,29 @@ class BaseTrainer:
         if prev_weights.exists():
             prev_weights.unlink()
 
-    def log_epoch_results(
-            self,
-            fnames: List[Path],
-            results: List[Dict[str, Any]],
-            metrics: List[Dict[str, Any]],
-            epoch: int,
-    ) -> None:
-        """Save results to a JSON file.
-
-        Parameters
-        ----------
-        fnames: List[Path]
-            List of full paths to find the original images.
-        results: List[Dict[str, Any]]
-            Output for each model.
-        metrics: List[Dict[str, Any]]
-            Metrics comparing the output to the ground truth.
-        epoch: int
-            Epoch number.
-        """
-        output = {}
-        for ii, (fn, rs, mt) in enumerate(zip(fnames, results, metrics)):
-            output[fn.name] = {
-                "results": self._format_dict(rs),
-                "metrics": self._format_dict(mt),
-            }
-
-        with open(self.save_path / self.json_name(epoch), 'w') as f_json:
-            json.dump(output, f_json)
-
-    def log_iteration_results(
-            self
-    ) -> None:
-        ...
-
-    def _format_dict(self, in_dict: Dict) -> Dict:
-        for k, v in in_dict.items():
-            if isinstance(v, dict):
-                in_dict[k] = self._format_dict(v)
-            if isinstance(v, np.ndarray):
-                in_dict[k] = v.tolist()
-            if isinstance(v, torch.Tensor):
-                in_dict[k] = v.detach().cpu().numpy().tolist()
-        return in_dict
-
-    def _process_and_log(self, output: TensorType, batch: BatchedSample) -> None:
-        ...
-
     def train(self):
         """Perform training on the model given the trainer configuration."""
         summary(self.model)
+        result_dirs = deque()
 
         for epoch in range(1, self.config.max_epochs + 1):
             self.model.train()
 
-            epoch_results = []
-            epoch_metrics = []
-            fnames = []
+            log_path = self.save_path / f"e{epoch}_train"
+            log_path.mkdir(exist_ok=True)
+            result_dirs.append(log_path)
+
+            if len(result_dirs) >= self.config.max_logging_epochs:
+                old_log_path = result_dirs.popleft()
+                rmtree(old_log_path)
+
+            curr_logger = self.logger_type(
+                log_path,
+                self.formatter,
+                self.metric,
+                self.config.logging_threads,
+                False,
+            )
 
             for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
@@ -375,7 +345,6 @@ class BaseTrainer:
                 if self.cosann_sched:
                     self.cosann_sched.step()
 
-                # Maybe not log each iteration
                 wandb.log(
                     {
                         "lr": self._get_lr(self.optimizer),
@@ -384,36 +353,28 @@ class BaseTrainer:
                     step=self.train_iters,
                 )
 
-                # TODO: Encapsulate this in a function and do it asynchronously
-
                 output = output.detach().cpu().numpy()
+                curr_logger.process_and_log(output, batch)
 
-                results = self.formatter(output, batch)
-                metrics = self.metric(results, batch)
+            curr_logger.close()
+            agg_metrics = curr_logger.aggregate()
 
-                epoch_results += results
-                epoch_metrics += metrics
-                fnames += batch.filename
-
-                # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-            self.log_epoch_results(fnames, epoch_results, epoch_metrics, epoch)
+            wandb.log(
+                {f"train_{k}": v for k, v in agg_metrics.items()},
+                step=self.train_iters,
+            )
 
             if not epoch % self.config.save_every:
                 self.save_current_weights(epoch)
 
             if not epoch % self.config.eval_every:
-                val_loss, val_metric = self.validator.validate(
+                val_loss, criterion = self.validator.validate(
                     self.model, epoch, self.train_iters, self.device
                 )
 
-                if (self.validator.maximise() and val_metric > self.best_metric) or \
-                        not (self.validator.maximise() and val_metric < self.best_metric):
-                    self.best_metric = val_metric
+                if (self.validator.maximise() and criterion > self.best_metric) or \
+                        not (self.validator.maximise() and criterion < self.best_metric):
+                    self.best_metric = criterion
                     self.best_epoch = epoch
 
                     self.model.save_weights(str(self.save_path / self.best_name))
-
-            self.epoch_end_hook(epoch_results)
-            if self.should_training_stop(epoch, epoch_results):
-                break
