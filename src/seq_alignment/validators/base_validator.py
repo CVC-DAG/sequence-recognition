@@ -135,6 +135,6 @@ class BaseValidator:
         )
 
         with open(log_path / "summary.json", 'w') as f_summary:
-            json.dump(agg_metrics, f_summary)
+            json.dump(agg_metrics, f_summary, indent=4)
 
         return loss, final_metric

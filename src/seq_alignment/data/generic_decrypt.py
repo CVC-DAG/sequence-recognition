@@ -28,7 +28,7 @@ from torch import TensorType
 
 from pydantic import BaseModel
 
-from ..utils.augmentations import PIPELINES
+from .augmentations import PIPELINES
 
 Coordinate = Tuple[int, int]
 
@@ -113,7 +113,7 @@ class GenericDecryptVocab:
         """
         return [self.index2vocab[x] for x in encoded]
 
-    def pad(self, encoded: List[int], pad_len: int, special: bool = False) -> List[int]:
+    def pad(self, encoded: List[int], pad_len: int, special: bool = False) -> ArrayLike:
         """Pad input sequence to a fixed width using special tokens.
 
         :param labels: List of indices for a Decrypt transcript.
@@ -123,21 +123,16 @@ class GenericDecryptVocab:
         and the end of the sequence plus padding tokens to match the max
         sequence length provided as argument.
         """
-        assert len(encoded) + 2 <= pad_len
+        padded = np.full(pad_len, self.pad_tok)
         if special:
-            return (
-                [self.vocab2index[self.go_tok]]
-                + encoded
-                + [self.vocab2index[self.stop_tok]]
-                + [
-                    self.vocab2index[self.pad_tok]
-                    for _ in range(pad_len - len(encoded) - 2)
-                ]
-            )
+            assert len(encoded) + 2 <= pad_len
+            padded[1: len(encoded) + 1] = encoded
+            padded[0] = self.go_tok
+            padded[len(encoded) + 1] = self.stop_tok
         else:
-            return encoded + (
-                [self.vocab2index[self.pad_tok]] * (pad_len - len(encoded))
-            )
+            assert len(encoded) <= pad_len
+            padded[:len(encoded)] = encoded
+        return padded
 
     def unpad(self, padded: List[int]) -> List[int]:
         """Perform the inverse operation to the pad function.
@@ -166,7 +161,6 @@ class GenericDecryptVocab:
         :returns: The input sequence with padding in array form.
         """
         data = self.pad(self.encode(data_in), pad_len)
-        data = np.array(data)
 
         return data
 
