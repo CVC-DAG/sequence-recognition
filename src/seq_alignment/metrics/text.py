@@ -44,6 +44,7 @@ class Levenshtein(BaseMetric):
         out = []
 
         for model_out, gt, ln in zip(output, batch.gt, batch.og_len):
+            ln = ln.item()
             lev = levenshtein(model_out["text"], gt[:ln])[0]
             out.append({"levenshtein": lev})
 
@@ -73,4 +74,5 @@ class Levenshtein(BaseMetric):
             Average of seqiou predictions for all bounding boxes.
         """
         preds = np.array([pred["levenshtein"] for pred in metrics])
-        return np.mean(preds)
+        return {"mean_levenshtein": np.mean(preds),
+                "std_levenshtein": np.std(preds)}

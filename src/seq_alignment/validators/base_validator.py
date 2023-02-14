@@ -123,7 +123,7 @@ class BaseValidator:
 
         logger.close()
         agg_metrics = logger.aggregate()
-        final_metric = agg_metrics[iter(next(agg_metrics))]
+        final_metric = agg_metrics[next(iter(agg_metrics), None)]
 
         loss /= len(self.valid_data)
         wandb.log(
@@ -133,5 +133,8 @@ class BaseValidator:
             } | {f"{self.mode}_{k}": v for k, v in agg_metrics.items()},
             step=iters,
         )
+
+        with open(log_path / "summary.json", 'w') as f_summary:
+            json.dump(agg_metrics, f_summary)
 
         return loss, final_metric

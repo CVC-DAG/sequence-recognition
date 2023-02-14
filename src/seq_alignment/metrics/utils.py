@@ -29,8 +29,8 @@ class Compose(BaseMetric):
         super().__init__()
         self.metrics = metrics
 
-        self.KEYS = [x for mtr in self.metrics for x in mtr.KEYS]
-        self.AGG_KEYS = [x for mtr in self.metrics for x in mtr.AGG_KEYS]
+        self._keys = [x for mtr in self.metrics for x in mtr.keys()]
+        self._agg_keys = [x for mtr in self.metrics for x in mtr.keys()]
 
         if len(set(self.KEYS)) != self.KEYS:
             warn("There are duplicate key names within the composition metric."
@@ -92,4 +92,7 @@ class Compose(BaseMetric):
         return output
 
     def keys(self) -> List[str]:
-        return 
+        return self._keys
+
+    def agg_keys(self) -> List[str]:
+        return self._agg_keys

@@ -308,7 +308,7 @@ class BaseTrainer:
             log_path.mkdir(exist_ok=True)
             result_dirs.append(log_path)
 
-            if len(result_dirs) >= self.config.max_logging_epochs:
+            if len(result_dirs) > self.config.max_logging_epochs:
                 old_log_path = result_dirs.popleft()
                 rmtree(old_log_path)
 
@@ -358,6 +358,9 @@ class BaseTrainer:
 
             curr_logger.close()
             agg_metrics = curr_logger.aggregate()
+
+            with open(log_path / "summary.json", 'w') as f_summary:
+                json.dump(agg_metrics, f_summary)
 
             wandb.log(
                 {f"train_{k}": v for k, v in agg_metrics.items()},

@@ -1,6 +1,5 @@
 """Implementation of conversions from a CTC output model to anything else."""
 
-from itertools import groupby
 from typing import Any, Dict, List
 
 import numpy as np
@@ -81,8 +80,8 @@ class OptimalCoordinateDecoder(BaseFormatter):
 class GreedyTextDecoder(BaseFormatter):
     """Generate an unpadded token sequence from a CTC output."""
 
-    KEY_TEXT = "coords1d"
-    KEY_TEXT_CONF = "coords1d_confidences"
+    KEY_TEXT = "text"
+    KEY_TEXT_CONF = "text_confidences"
     KEYS = [KEY_TEXT, KEY_TEXT_CONF]
 
     def __init__(self) -> None:

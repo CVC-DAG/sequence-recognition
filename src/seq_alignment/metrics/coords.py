@@ -14,7 +14,7 @@ class SeqIoU(BaseMetric):
 
     METRIC_NAME = "seqiou"
     KEYS = [METRIC_NAME]
-    AGG_KEYS = []
+    AGG_KEYS = ["mean_iou", "iou_hits_25", "iou_hits_50", "iou_hits_75"]
 
     def __init__(self) -> None:
         """Initialise Object."""
@@ -72,4 +72,10 @@ class SeqIoU(BaseMetric):
             Average of seqiou predictions for all bounding boxes.
         """
         preds = np.concatenate([pred["seqiou"] for pred in metrics])
-        return np.mean(preds)
+        hits25 = np.count_nonzero(preds >= 0.25) / (len(preds) or 1)
+        hits50 = np.count_nonzero(preds >= 0.50) / (len(preds) or 1)
+        hits75 = np.count_nonzero(preds >= 0.75) / (len(preds) or 1)
+        return {"mean_iou": np.mean(preds),
+                "iou_hits_25": hits25,
+                "iou_hits_50": hits50,
+                "iou_hits_75": hits75}

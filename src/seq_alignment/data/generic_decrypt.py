@@ -39,7 +39,7 @@ class GenericUnloadedSample(NamedTuple):
     gt: ArrayLike
     og_len: int
     segm: ArrayLike
-    filename: Path
+    filename: str
 
 
 class GenericSample(NamedTuple):
@@ -48,7 +48,7 @@ class GenericSample(NamedTuple):
     gt: ArrayLike
     og_len: int         # Fixme: Should change to the range of valid tokens.
     segm: ArrayLike
-    filename: Path
+    filename: str
 
     img: TensorType
     curr_shape: Coordinate
@@ -61,7 +61,7 @@ class BatchedSample(NamedTuple):
     gt: Tuple[ArrayLike]
     og_len: Tuple[int]
     segm: Tuple[ArrayLike]
-    filename: Tuple[Path]
+    filename: Tuple[str]
 
     img: Tuple[TensorType]
     curr_shape: Tuple[Coordinate]
@@ -245,7 +245,7 @@ class GenericDecryptDataset(D.Dataset):
                     gt=transcript,
                     og_len=og_len,
                     segm=segmentation,
-                    filename=self._image_folder / fn,
+                    filename=str(self._image_folder / fn),
                 )
             )
 
@@ -263,7 +263,7 @@ class GenericDecryptDataset(D.Dataset):
         """
         sample = self._samples[index]
 
-        img = Image.open(str(sample.filename)).convert("RGB")
+        img = Image.open(sample.filename).convert("RGB")
         if self._hflip:
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
 

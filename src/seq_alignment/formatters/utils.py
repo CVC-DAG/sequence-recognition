@@ -22,7 +22,7 @@ class Compose(BaseFormatter):
             List of formatters to be computed for a single output.
         """
         self.formatters = formatters
-        self.KEYS = [x for fmt in self.formatters for x in fmt.KEYS]
+        self._keys = [x for fmt in self.formatters for x in fmt.KEYS]
 
         if len(set(self.KEYS)) != self.KEYS:
             warn("There are duplicate key names within the composition formatter."
@@ -58,6 +58,9 @@ class Compose(BaseFormatter):
             else:
                 output = [old | curr for old, curr in zip(output, current)]
         return output
+
+    def keys(self) -> List[str]:
+        return self._keys
 
 
 class AddFilename(BaseFormatter):

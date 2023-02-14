@@ -13,6 +13,7 @@ class BaseMetric(ABC):
 
     METRIC_NAME = "base_metric"
     KEYS = [METRIC_NAME]
+    AGG_KEYS = []
 
     @abstractmethod
     def __call__(
@@ -48,7 +49,7 @@ class BaseMetric(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
+    def aggregate(self, metrics: Dict[str, ArrayLike]) -> Dict[str, Any]:
         """Aggregate a set of predictions from the given metric.
 
         Parameters
@@ -58,8 +59,8 @@ class BaseMetric(ABC):
 
         Returns
         -------
-        float
-            An aggregate value summarising the entire prediction.
+        Dict[str, Any]
+            A set of aggregate values summarising an entire prediction.
         """
         raise NotImplementedError
 
@@ -72,3 +73,13 @@ class BaseMetric(ABC):
             The list of keys this metric can generate.
         """
         return self.KEYS
+
+    def agg_keys(self) -> List[str]:
+        """Return the list of aggregation dictionary keys associated with this metric.
+
+        Returns
+        -------
+        List[str]
+            The list of keys this metric can generate when aggregating stuff.
+        """
+        return self.AGG_KEYS

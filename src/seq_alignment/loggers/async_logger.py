@@ -1,6 +1,7 @@
 """Logger that performs tasks separately from the main process and thread."""
 
 import multiprocessing as mp
+import pickle
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -33,8 +34,10 @@ class AsyncLogger(BaseLogger):
             Max number of parallel processes. Note that two extra processes are created
             for writers.
         """
+        self._path = path
         self._mgr = mp.Manager()
-        self._pool = mp.Pool(processes=workers + 2)
+        self._pool = mp.Pool(processes=workers)
+        self._writer_pool = mp.Pool(processes=2)
 
         self._metric_queue = self._mgr.Queue()
         self._result_queue = self._mgr.Queue()
@@ -47,13 +50,16 @@ class AsyncLogger(BaseLogger):
             self._formatter, self._metric, self._log_results
         )
 
-        _ = self._pool.apply_async(
-            __writer, (path, self._metric.keys(), "metric", self._metric_queue)
+        self._jobs = []
+        writer_a = self._writer_pool.apply_async(
+            _writer, (path, self._metric.keys(), "metric", self._metric_queue)
         )
+        self._jobs.append(writer_a)
         if self._log_results:
-            _ = self._pool.apply_async(
-                __writer, (path, self._formatter.keys(), "results", self._result_queue)
+            writer_b = self._writer_pool.apply_async(
+                _writer, (path, self._formatter.keys(), "results", self._result_queue)
             )
+            self._jobs.append(writer_b)
 
     def process_and_log(
         self,
@@ -69,9 +75,11 @@ class AsyncLogger(BaseLogger):
         batch: BatchedSample
             An input batch with ground truth and filename data.
         """
-        self._pool.apply_async(
-            self._processor, (output, batch, self._metric_queue, self._result_queue)
-        )
+        self._jobs.append(self._pool.apply_async(
+            self._processor,
+            (output, batch, self._metric_queue, self._result_queue),
+            error_callback=_error_callback,
+        ))
 
     def aggregate(self) -> Dict[str, Any]:
         """Aggregate logged metrics.
@@ -82,25 +90,36 @@ class AsyncLogger(BaseLogger):
             A dict whose keys are aggregate names and values are the aggregations of
             values related to a metric.
         """
-        return {}
+        predictions = None
+        for name in self._metric.keys():
+            loaded = self.load_prediction(self._path / f"metric_{name}.pkl")
+            if predictions is None:
+                predictions = {fn: {name: value} for fn, value in loaded.items()}
+            else:
+                for fn, val in loaded.items():
+                    predictions[fn][name] = val
+
+        return self._metric.aggregate([x for x in predictions.values()])
 
     def close(self):
         """Cleanup logger class and close all related files."""
+        self._pool.close()
+        self._pool.join()
+
         self._metric_queue.put("kill")
         self._result_queue.put("kill")
+        self._writer_pool.close()
+        self._writer_pool.join()
 
-        self._logger.close()
-        self._pool.close()
 
-
-def __writer(
+def _writer(
     path: Path,
     names: List[str],
     fname_base: str,
     q: mp.Queue,
 ) -> None:
     metric_paths = {
-        name: open(path / f"{fname_base}_{name}.npz", "rw") for name in names
+        name: open(path / f"{fname_base}_{name}.pkl", "ba") for name in names
     }
 
     while True:
@@ -110,9 +129,12 @@ def __writer(
                 v.close()
             return
         img_names, output = content
-        for fn, out in zip(img_names, output):
-            for k, v in out.items():
-                np.savez_compressed(metric_paths[k], fn=v)
+        write_dict = {name: {img_name: out[name] for img_name, out in zip(img_names, output)}
+                      for name in names}
+        for k, v in write_dict.items():
+            f_out = metric_paths[k]
+            pickle.dump(v, f_out)
+            f_out.flush()
 
 
 class AsyncProcessor:
@@ -159,9 +181,16 @@ class AsyncProcessor:
         result_q: mp.Queue
             Queue to write formatted results.
         """
-        fnames = batch.filename
+        fnames = [x.split("/")[-1] for x in batch.filename]
         results = self._formatter(output, batch)
+
         if self._log_results:
             result_q.put((fnames, results))
-        metrics = self._metric(output, batch)
+
+        metrics = self._metric(results, batch)
         metric_q.put((fnames, metrics))
+
+
+def _error_callback(e: Exception) -> None:
+    print(f"ERROR! {str(e)}")
+    raise e
