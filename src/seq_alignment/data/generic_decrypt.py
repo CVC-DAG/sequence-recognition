@@ -229,7 +229,7 @@ class GenericDecryptDataset(D.Dataset):
             segm = np.array(sample["segm"], dtype=int)
 
             if self._hflip:
-                segm = abs(segm[::-1] - max(segm))
+                segm = abs(segm[::-1] - segm.max())
                 transcript = transcript[::-1]
 
             segmentation = np.full((self._seqlen, 2), -1)
