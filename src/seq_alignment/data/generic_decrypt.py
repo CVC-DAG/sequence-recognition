@@ -226,10 +226,14 @@ class GenericDecryptDataset(D.Dataset):
 
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
-            segmentation = sample["segm"] + (
-                [[-1, -1]] * (self._seqlen - len(sample["segm"]))
-            )
-            segmentation = np.array(segmentation, dtype=int)
+            segm = np.array(sample["segm"], dtype=int)
+
+            if self._hflip:
+                segm = abs(segm[::-1] - max(segm))
+                transcript = transcript[::-1]
+
+            segmentation = np.full((self._seqlen, 2), -1)
+            segmentation[:len(segm)] = segm
 
             og_len = len(transcript)
             transcript = vocab.prepare_data(transcript, self._seqlen)
@@ -258,8 +262,6 @@ class GenericDecryptDataset(D.Dataset):
         sample = self._samples[index]
 
         img = Image.open(sample.filename).convert("RGB")
-        if self._hflip:
-            img = img.transpose(Image.FLIP_LEFT_RIGHT)
 
         og_shape = img.size
         img_width, img_height = og_shape
@@ -272,10 +274,10 @@ class GenericDecryptDataset(D.Dataset):
         padded_img = Image.new(img.mode, self._target_shape, (255, 255, 255))
         padded_img.paste(img, (0, 0))
 
-        padded_img = self._aug_pipeline(padded_img)
-
         if self._hflip:
-            ...
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+
+        padded_img = self._aug_pipeline(padded_img)
 
         return GenericSample(
             sample.gt,

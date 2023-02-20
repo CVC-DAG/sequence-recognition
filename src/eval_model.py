@@ -37,6 +37,13 @@ class AlignmentEvaluator:
             except KeyError:
                 groups[k] = PredictionGroup([prediction], v["gt_seq"], path.stem)
 
+    def _load_pickle_predictions(
+        self,
+        path: Path,
+        groups: Dict[str, PredictionGroup]
+    ) -> Dict[str, PredictionGroup]:
+        ...
+
     def _generate_model_predictions(
         self,
     ) -> Dict[str, PredictionGroup]:
@@ -66,7 +73,7 @@ def setup() -> Namespace:
     )
     parser.add_argument(
         "--prediction",
-        help="Path to a prediction file.",
+        help="Path to a prediction path or file.",
         action="append",
         type=Path,
     )
