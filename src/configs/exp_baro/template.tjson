@@ -18,10 +18,12 @@
     "data": {
         "target_shape": "Tuple",
         "target_seqlen": "int",
-        "aug_pipeline": "str"
+        "aug_pipeline": "str",
+        "hflip": "bool"
     },
     "model": {
         "model_name": "str",
+        "model_weights": "str",
         "lstm_hidden_size": "int",
         "lstm_layers": "int",
         "blstm": "bool",
@@ -49,8 +51,10 @@
         "warmup_iters": "int",
         "cosann_sched": "bool",
         "cosann_t0": "int",
-        "cosann_factor": "int",
-        "cosann_min": "float"
+        "cosann_factor": "float",
+        "cosann_min": "float",
+        "max_logging_epochs": "int",
+        "logging_threads": "int"
     },
     "beam_width": "int"
 }
