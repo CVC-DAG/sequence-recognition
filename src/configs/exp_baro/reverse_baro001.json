@@ -7,8 +7,8 @@
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/exp_baro",
         "base_data_dir": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale",
-        "training_file": "gt_lines_training.json",
-        "training_root": "lines",
+        "training_file": "gt_words_training.json",
+        "training_root": "words",
         "validation_file": "gt_lines_validation.json",
         "validation_root": "lines",
         "test_file": "gt_lines_test.json",

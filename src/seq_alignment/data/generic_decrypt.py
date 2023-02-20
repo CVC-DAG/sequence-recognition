@@ -123,7 +123,7 @@ class GenericDecryptVocab:
         and the end of the sequence plus padding tokens to match the max
         sequence length provided as argument.
         """
-        padded = np.full(pad_len, self.pad_tok)
+        padded = np.full(pad_len, self.vocab2index[self.pad_tok])
         if special:
             assert len(encoded) + 2 <= pad_len
             padded[1: len(encoded) + 1] = encoded
