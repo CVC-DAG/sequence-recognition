@@ -193,7 +193,7 @@ class PredictionGroup:
         self,
         predictions: List[Prediction],
         gt_sequence: ArrayLike,
-        names: Optional[List[str | None]]= None,
+        names: Optional[List[str | None]] = None,
     ) -> None:
         """Create PredictionGroup object.
 

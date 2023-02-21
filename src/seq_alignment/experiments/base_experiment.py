@@ -57,7 +57,7 @@ class Experiment(ABC):
 
     def __init__(self):
         """Initialise Experiment."""
-        self.cfg, self.test_weights = self.setup()
+        self.cfg, self.test_weights, self.debug = self.setup()
         self.initialise_everything()
 
     @staticmethod
@@ -93,7 +93,7 @@ class Experiment(ABC):
 
         return cfg
 
-    def setup(self) -> Tuple[ExperimentConfig, str]:
+    def setup(self) -> Tuple[ExperimentConfig, str, bool]:
         """Load configuration and set up paths.
 
         :returns: Singleton configuration object.
@@ -120,6 +120,12 @@ class Experiment(ABC):
             type=str,
             help="Test the input experiment with the provided parameter weights",
             default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--debug",
+            help="Sets the code in debug mode.",
+            action="store_true",
             required=False,
         )
 
@@ -159,7 +165,7 @@ class Experiment(ABC):
 
         copyfile(args.config_path, Path(cfg.dirs.results_dir) / fname)
 
-        return cfg, args.test
+        return cfg, args.test, args.debug
 
     @abstractmethod
     def initialise_everything(self) -> None:

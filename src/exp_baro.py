@@ -10,7 +10,9 @@ from seq_alignment.data.generic_decrypt import (
 from seq_alignment.experiments.base_experiment import Experiment, ExperimentConfig
 from seq_alignment.experiments.configurations import DecryptDirectoryConfig
 from seq_alignment.formatters import ctc_formatters
-from seq_alignment.metrics import coords, text, utils
+from seq_alignment.loggers.base_logger import SimpleLogger
+from seq_alignment.loggers.async_logger import AsyncLogger
+from seq_alignment.metrics import coords, text
 from seq_alignment.models.ctc_models import BaroCRNN, BaroCRNNConfig
 from seq_alignment.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
 from seq_alignment.validators.base_validator import BaseValidator
@@ -82,6 +84,7 @@ class BaroExperiment(Experiment):
             self.cfg.train.batch_size,
             self.cfg.train.workers,
             "valid",
+            SimpleLogger if self.debug else AsyncLogger,
         )
         self.tester = BaseValidator(
             self.test_data,
@@ -91,6 +94,7 @@ class BaroExperiment(Experiment):
             self.cfg.train.batch_size,
             self.cfg.train.workers,
             "test",
+            SimpleLogger if self.debug else AsyncLogger,
         )
 
         self.trainer = BaseTrainer(
@@ -102,6 +106,7 @@ class BaroExperiment(Experiment):
             self.training_formatter,
             self.training_metric,
             None,
+            SimpleLogger if self.debug else AsyncLogger,
         )
 
 

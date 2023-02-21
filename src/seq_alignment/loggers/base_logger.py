@@ -3,9 +3,8 @@
 import pickle
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Any, Dict, List
+from typing import Any, Dict, List
 
-import numpy as np
 from numpy.typing import ArrayLike
 
 from seq_alignment.data.generic_decrypt import BatchedSample
@@ -108,14 +107,14 @@ class SimpleLogger(BaseLogger):
         self._log_results = log_results
 
         self._metric_paths = {
-            name: open(self._path / (name + ".npz"), "rw")
+            name: open(path / f"metric_{name}.pkl", "ba")
             for name in self._metric.keys()
         }
 
         if self._log_results:
             self._result_paths = {
-                name:  open(self._path / (name + ".npz"), "rw")
-                for name in self._formatter.keys()
+                name: open(path / f"results_{name}.pkl", "ba")
+                for name in self._metric.keys()
             }
 
     def _write_metrics(
@@ -133,9 +132,13 @@ class SimpleLogger(BaseLogger):
         names: List[str]
             A list of file names aligned to each metric_res element.
         """
-        for fn, out in zip(names, metric_res):
-            for k, v in out.items():
-                np.savez_compressed(self._metric_paths[k], fn=v)
+        write_dict = {metric_name: {img_name: out[metric_name]
+                      for img_name, out in zip(names, metric_res)}
+                      for metric_name in self._metric.keys()}
+        for k, v in write_dict.items():
+            f_out = self._metric_paths[k]
+            pickle.dump(v, f_out)
+            f_out.flush()
 
     def _write_results(
         self,
@@ -152,9 +155,13 @@ class SimpleLogger(BaseLogger):
         names: List[str]
             A list of file names aligned to each final_res element.
         """
-        for fn, out in zip(names, final_res):
-            for k, v in out.items():
-                np.savez_compressed(self._result_paths[k], fn=v)
+        write_dict = {metric_name: {img_name: out[metric_name]
+                      for img_name, out in zip(names, final_res)}
+                      for metric_name in self._formatter.keys()}
+        for k, v in write_dict.items():
+            f_out = self._result_paths[k]
+            pickle.dump(v, f_out)
+            f_out.flush()
 
     def process_and_log(
         self,
@@ -173,7 +180,7 @@ class SimpleLogger(BaseLogger):
         results = self._formatter(output, batch)
         metrics = self._metric(results, batch)
 
-        fnames = [f.name for f in batch.filename]
+        fnames = [x.split("/")[-1] for x in batch.filename]
 
         self._write_metrics(metrics, fnames)
         if self._log_results:
@@ -188,7 +195,16 @@ class SimpleLogger(BaseLogger):
             A dict whose keys are aggregate names and values are the aggregations of
             values related to a metric.
         """
-        raise NotImplementedError
+        predictions = None
+        for name in self._metric.keys():
+            loaded = self.load_prediction(self._path / f"metric_{name}.pkl")
+            if predictions is None:
+                predictions = {fn: {name: value} for fn, value in loaded.items()}
+            else:
+                for fn, val in loaded.items():
+                    predictions[fn][name] = val
+
+        return self._metric.aggregate([x for x in predictions.values()])
 
     def close(self):
         """Cleanup logger class and close all related files."""

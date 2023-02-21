@@ -5,8 +5,6 @@ import pickle
 from pathlib import Path
 from typing import Any, Dict, List
 
-import numpy as np
-
 from seq_alignment.data.generic_decrypt import BatchedSample
 from seq_alignment.metrics.base_metric import BaseMetric
 from seq_alignment.formatters.base_formatter import BaseFormatter
@@ -129,7 +127,8 @@ def _writer(
                 v.close()
             return
         img_names, output = content
-        write_dict = {name: {img_name: out[name] for img_name, out in zip(img_names, output)}
+        write_dict = {name: {img_name: out[name]
+                      for img_name, out in zip(img_names, output)}
                       for name in names}
         for k, v in write_dict.items():
             f_out = metric_paths[k]
