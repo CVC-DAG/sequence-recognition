@@ -82,6 +82,7 @@ class SimpleLogger(BaseLogger):
         formatter: BaseFormatter,
         metric: BaseMetric,
         log_results: bool = True,
+        *args,
     ) -> None:
         """Set up the class and base paths.
 

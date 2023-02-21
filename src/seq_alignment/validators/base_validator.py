@@ -104,8 +104,8 @@ class BaseValidator:
                 log_path,
                 self.valid_formatter,
                 self.valid_metric,
-                self.workers,
                 True,
+                self.workers,
             )
             log_path.mkdir(exist_ok=True)
 

@@ -19,8 +19,8 @@ class AsyncLogger(BaseLogger):
         path: Path,
         formatter: BaseFormatter,
         metric: BaseMetric,
-        workers: int,
         log_results: bool = True,
+        workers: int = 4,
     ) -> None:
         """Initialise wrapper.
 
@@ -32,6 +32,7 @@ class AsyncLogger(BaseLogger):
             Max number of parallel processes. Note that two extra processes are created
             for writers.
         """
+        super().__init__()
         self._path = path
         self._mgr = mp.Manager()
         self._pool = mp.Pool(processes=workers)

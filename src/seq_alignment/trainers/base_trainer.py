@@ -316,8 +316,8 @@ class BaseTrainer:
                 log_path,
                 self.formatter,
                 self.metric,
-                self.config.logging_threads,
                 False,
+                self.config.logging_threads,
             )
 
             for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
