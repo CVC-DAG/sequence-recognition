@@ -82,7 +82,7 @@ class BaroExperiment(Experiment):
             self.valid_metric,
             Path(self.cfg.dirs.results_dir),
             self.cfg.train.batch_size,
-            self.cfg.train.workers,
+            0 if self.debug else self.cfg.train.workers,
             "valid",
             SimpleLogger if self.debug else AsyncLogger,
         )
@@ -92,7 +92,7 @@ class BaroExperiment(Experiment):
             self.valid_metric,
             Path(self.cfg.dirs.results_dir),
             self.cfg.train.batch_size,
-            self.cfg.train.workers,
+            0 if self.debug else self.cfg.train.workers,
             "test",
             SimpleLogger if self.debug else AsyncLogger,
         )

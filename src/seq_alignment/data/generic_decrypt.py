@@ -230,6 +230,7 @@ class GenericDecryptDataset(D.Dataset):
 
             if self._hflip:
                 segm = abs(segm[::-1] - segm.max())
+                segm = segm[:, [1, 0]]
                 transcript = transcript[::-1]
 
             segmentation = np.full((self._seqlen, 2), -1)
@@ -271,12 +272,10 @@ class GenericDecryptDataset(D.Dataset):
         new_shape = tuple(map(lambda x: int(x * factor), og_shape))
 
         img = img.resize(new_shape)
-        padded_img = Image.new(img.mode, self._target_shape, (255, 255, 255))
-        padded_img.paste(img, (0, 0))
-
         if self._hflip:
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
-
+        padded_img = Image.new(img.mode, self._target_shape, (255, 255, 255))
+        padded_img.paste(img, (0, 0))
         padded_img = self._aug_pipeline(padded_img)
 
         return GenericSample(

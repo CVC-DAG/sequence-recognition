@@ -5,11 +5,13 @@ from __future__ import annotations
 from typing import (
     List,
     Tuple,
+    Union,
 )
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
+import torch
 from numpy.typing import ArrayLike
 from pathlib import Path
 from PIL import Image
@@ -121,4 +123,42 @@ def display_bboxes(
             linewidth=1,
         ))
     fig.savefig(output, bbox_inches='tight', dpi=300)
+    plt.close(fig)
+
+
+def display_bboxes_loaded(
+    img: Union[Image, ArrayLike, torch.Tensor],
+    bboxes: ArrayLike,
+) -> None:
+    """Display bounding boxes on a loaded image. Ignores negative bboxes.
+
+    Parameters
+    ----------
+    img: Union[Image, ArrayLike, torch.Tensor]
+        An input image. Should be castable to array.
+    bboxes: ArrayLike
+        A list of bboxes in format N x 2.
+    """
+    img = np.array(img)
+
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    height, _, _ = img.shape
+
+    ax.imshow(img)
+    colors = plt.cm.hsv(np.linspace(0, 1, len(bboxes)))
+
+    for ii, (x1, x2) in enumerate(bboxes):
+        if x1 < 0 and x2 < 0:
+            continue
+        width = x2 - x1
+        ax.add_patch(patches.Rectangle(
+            (x1, 0),
+            width,
+            height,
+            color=colors[ii],
+            alpha=0.5,
+            linewidth=1,
+        ))
+    plt.show()
     plt.close(fig)
