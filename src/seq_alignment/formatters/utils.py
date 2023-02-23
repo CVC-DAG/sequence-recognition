@@ -24,7 +24,7 @@ class Compose(BaseFormatter):
         self.formatters = formatters
         self._keys = [x for fmt in self.formatters for x in fmt.KEYS]
 
-        if len(set(self.KEYS)) != self.KEYS:
+        if len(set(self._keys)) != (len(self._keys)):
             warn("There are duplicate key names within the composition formatter."
                  "This will lead to some results being overwritten. Double check "
                  "your class definitions for formatters.")
@@ -66,6 +66,9 @@ class Compose(BaseFormatter):
 class AddFilename(BaseFormatter):
     """Add filename into the formatting dictionary."""
 
+    KEY_FILENAME = "filename"
+    KEYS = [KEY_FILENAME]
+
     def __call__(
             self,
             model_output: torch.Tensor,
@@ -86,11 +89,14 @@ class AddFilename(BaseFormatter):
             A list of dicts where keys are the names of the formatting
             techniques and the values are the formatted outputs.
         """
-        return [{"filename": x.name} for x in batch.filename]
+        return [{self.KEY_FILENAME: x} for x in batch.filename]
 
 
-class AddGroundTruth(BaseFormatter):
+class AddGroundTruthText(BaseFormatter):
     """Add ground truth into the formatting dictionary."""
+
+    KEY_GT = "gt_text"
+    KEYS = [KEY_GT]
 
     def __call__(
             self,
@@ -112,4 +118,33 @@ class AddGroundTruth(BaseFormatter):
             A list of dicts where keys are the names of the formatting
             techniques and the values are the formatted outputs.
         """
-        return [x[:l] for x, l in zip(batch.gt, batch.og_len)]
+        return [{self.KEY_GT: x[:l] for x, l in zip(batch.gt, batch.og_len)}]
+
+
+class AddGroundTruthSegm(BaseFormatter):
+    """Add ground truth into the formatting dictionary."""
+
+    KEY_GT = "gt_segm"
+    KEYS = [KEY_GT]
+
+    def __call__(
+            self,
+            model_output: torch.Tensor,
+            batch: BatchedSample
+    ) -> List[Dict[str, Any]]:
+        """Provide the filename to the formatted dict.
+
+        Parameters
+        ----------
+        model_output: torch.Tensor
+            The output of a model.
+        batch: BatchedSample
+            Batch information if needed.
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            A list of dicts where keys are the names of the formatting
+            techniques and the values are the formatted outputs.
+        """
+        return [{self.KEY_GT: x[:l] for x, l in zip(batch.segm, batch.og_len)}]

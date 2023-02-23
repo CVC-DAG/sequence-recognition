@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import (
     List,
+    Optional,
     Tuple,
     Union,
 )
@@ -129,6 +130,7 @@ def display_bboxes(
 def display_bboxes_loaded(
     img: Union[Image, ArrayLike, torch.Tensor],
     bboxes: ArrayLike,
+    output: Optional[Path] = None,
 ) -> None:
     """Display bounding boxes on a loaded image. Ignores negative bboxes.
 
@@ -160,5 +162,8 @@ def display_bboxes_loaded(
             alpha=0.5,
             linewidth=1,
         ))
-    plt.show()
+    if output is None:
+        plt.show()
+    else:
+        fig.savefig(output, bbox_inches='tight', dpi=150)
     plt.close(fig)

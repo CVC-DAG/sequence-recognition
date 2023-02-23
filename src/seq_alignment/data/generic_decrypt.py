@@ -171,7 +171,11 @@ class DataConfig(BaseModel):
     target_shape: Coordinate
     target_seqlen: int
     aug_pipeline: Optional[str]
-    hflip: bool = False
+    hflip: bool = False   
+    # Be reminded that for bounding boxes to be arranged properly, the maximum
+    # coordinate within the segm file should match the rightmost point in the image
+    # (in other words, the max x). The way it is done now allows for the coordinate
+    # conversion process to be performed only once, at the cost of flexibility.
 
 
 class GenericDecryptDataset(D.Dataset):

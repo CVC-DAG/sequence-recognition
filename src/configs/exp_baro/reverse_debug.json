@@ -1,6 +1,6 @@
 {
-    "exp_name": "debug",
-    "description": "Debug experiment",
+    "exp_name": "baro_reverse001",
+    "description": "Attempt at training a reverse model",
     "cipher": "copiale",
     "wandb_mode": "disabled",
     "wandb_project": "seq-alignment",
@@ -18,11 +18,12 @@
     "data": {
         "target_shape": [512, 64],
         "target_seqlen": 70,
-        "aug_pipeline": "basic_decrypt"
+        "aug_pipeline": "basic_decrypt",
+        "hflip": true
     },
     "model": {
         "model_name": "baro_crnn",
-        "model_weights": "/home/ptorras/Documents/Decrypt/align_crnn/exploratory003/weights_exp_exploratory003_run_celestial-haze-8_BEST.pth",
+        "model_weights": null,
         "lstm_hidden_size": 128,
         "lstm_layers": 4,
         "blstm": true,
@@ -30,7 +31,7 @@
         "output_classes": 130
     },
     "train": {
-        "batch_size": 128,
+        "batch_size": 32,
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 200,
@@ -39,7 +40,7 @@
         "save_every": 1,
         "eval_every": 1,
         "weight_decay": 8.973224240485022e-05,
-        "workers": 8,
+        "workers": 0,
 
         "plateau_sched": true,
         "plateau_factor": 1e-1,
@@ -54,7 +55,10 @@
         "cosann_sched": false,
         "cosann_t0": 3e-4,
         "cosann_factor": 1e-1,
-        "cosann_min": 1e-5
+        "cosann_min": 1e-5,
+
+        "max_logging_epochs": 2,
+        "logging_threads": 1
     },
     "beam_width": 30
 }

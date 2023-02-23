@@ -10,6 +10,7 @@ from numpy.typing import ArrayLike
 from seq_alignment.data.generic_decrypt import BatchedSample
 from seq_alignment.metrics.base_metric import BaseMetric
 from seq_alignment.formatters.base_formatter import BaseFormatter
+from seq_alignment.utils.io import load_pickle_prediction
 
 
 class BaseLogger(ABC):
@@ -29,14 +30,7 @@ class BaseLogger(ABC):
             A dictionary whose keys are metric fields and values are the stored numpy
             arrays.
         """
-        obj = []
-        with open(path, 'rb') as f_in:
-            while(1):
-                try:
-                    obj.append(pickle.load(f_in))
-                except EOFError:
-                    break
-        return {k: v for x in obj for k, v in x.items()}
+        return load_pickle_prediction(path)
 
     @abstractmethod
     def process_and_log(

@@ -62,12 +62,23 @@ def iou(ref, cmp, thresh=None):
 def fiou(bboxes1, bboxes2):
     """Fast IoU Implementation.
 
-    Fast IoU implementation from https://medium.com/@venuktan/vectorized-intersection-over-union-iou-in-numpy-and-tensor-flow-4fa16231b63d
+    Fast IoU implementation from https://medium.com/@venuktan/vectorized-intersection-
+    over-union-iou-in-numpy-and-tensor-flow-4fa16231b63d
     We compared it against our own and decided to use this as it is much more
     memory efficient.
-
-    :param bboxes1: Array of bounding boxes in XYXY format.
-    :param bboxes2: Array of bounding boxes in XYXY format.
+    
+    Parameters
+    ----------
+    bboxes1: ArrayLike 
+        Array of bounding boxes in XYXY format.
+    bboxes2: ArrayLike 
+        Array of bounding boxes in XYXY format.
+    
+    Returns
+    -------
+    ArrayLike
+        Matrix with IoU results of all bounding boxes from the first array against all
+        bounding boxes from the second array.
     """
     x11, y11, x12, y12 = np.split(bboxes1, 4, axis=1)
     x21, y21, x22, y22 = np.split(bboxes2, 4, axis=1)
@@ -88,7 +99,7 @@ def fiou(bboxes1, bboxes2):
 
 
 def fiou_1d(bboxes1, bboxes2):
-    """IoU for sequences of 1D boxes (segments).
+    """Intersection over Union for sequences of 1D boxes (segments).
 
     :param bboxes1: Matrix of coordinates with shape P x 2 corresponding to the
     prediction.
@@ -113,7 +124,7 @@ def fiou_1d(bboxes1, bboxes2):
 
 
 def seqiou(bboxes1, bboxes2):
-    """IoU for sequences of 1D boxes (segments).
+    """Intersection over Union for sequences of 1D boxes (segments).
 
     :param bboxes1: Matrix of coordinates with shape P x 2 corresponding to the
     prediction.
@@ -175,7 +186,8 @@ def sequiou_multiple(bbox_set: ArrayLike) -> ArrayLike:
 
 
 def compare_gt(iou, confidence):
-    """
+    """Comparison of ground truth boxes.
+
     Compare each ground truth box against a prediction and align them. Solve
     conflicts with area of overlap first, then confidence.
 
@@ -203,7 +215,7 @@ def compare_gt(iou, confidence):
     # Find duplicate predictions and ignore non-valid boxes
     vals, counts = np.unique(belonging, return_counts=True)
     counts = counts[vals != -1]
-    vals   = vals[vals != -1]
+    vals = vals[vals != -1]
     conflicts = np.nonzero(counts > 1)[0]
 
     # Solve each conflict with non-maximal suppression
@@ -250,7 +262,6 @@ def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
     labels: ArrayLike
         An array of N' samples with each accepted box's label.
     """
-
     out_box = []
     out_conf = []
     out_labels = []
