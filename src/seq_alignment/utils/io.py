@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 def load_pickle_prediction(path: Path) -> Dict[str, Any]:
     """Load a prediction pickle file into memory.
-    
+
     Parameters
     ----------
     path: Path
@@ -20,8 +20,8 @@ def load_pickle_prediction(path: Path) -> Dict[str, Any]:
         arrays.
     """
     obj = []
-    with open(path, 'rb') as f_in:
-        while(1):
+    with open(path, "rb") as f_in:
+        while 1:
             try:
                 obj.append(pickle.load(f_in))
             except EOFError:

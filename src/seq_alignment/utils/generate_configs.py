@@ -12,6 +12,7 @@ from random import choice, uniform
 
 from argparse import ArgumentParser, Namespace
 from copy import deepcopy
+
 # from inspect import isfunction
 from lark import Lark, Transformer, v_args
 from typing import Dict, List
@@ -53,18 +54,21 @@ class GeneratorFactory:
     def create_anyof(cls, values):
         def anyof(values=values):
             return choice(values)
+
         return anyof
 
     @classmethod
     def create_range(cls, values):
         def rrange(values=values):
             return uniform(*values)
+
         return rrange
 
     @classmethod
     def create_logrange(cls, values):
         def lrange(values=values):
-            return 10**(uniform(*map(log10, values)))
+            return 10 ** (uniform(*map(log10, values)))
+
         return lrange
 
 
@@ -115,7 +119,7 @@ class TemplateParser:
         self._parser = Lark(LARK_GRAMMAR)
         self._tformer = TJSONTransformer()
 
-        with open(self._path, 'r') as f_template:
+        with open(self._path, "r") as f_template:
             self._model = f_template.read()
             self._model = self._parser.parse(self._model)
             self._model = self._tformer.transform(self._model)
@@ -149,15 +153,9 @@ def setup() -> Namespace:
         type=int,
         help="Number of files to generate",
     )
+    parser.add_argument("exp_name", type=str, help="How to name generated experiments")
     parser.add_argument(
-        "exp_name",
-        type=str,
-        help="How to name generated experiments"
-    )
-    parser.add_argument(
-        "output_path",
-        type=str,
-        help="What folder to store the generated configs into"
+        "output_path", type=str, help="What folder to store the generated configs into"
     )
 
     args = parser.parse_args()
@@ -173,7 +171,7 @@ def main(args: Namespace) -> None:
         name = args.exp_name + f"{ii:03d}"
         config = temp_parser.generate_config(name)
 
-        with open(output_path / (name + ".json"), 'w') as f_json:
+        with open(output_path / (name + ".json"), "w") as f_json:
             json.dump(config, f_json, indent=4)
 
 

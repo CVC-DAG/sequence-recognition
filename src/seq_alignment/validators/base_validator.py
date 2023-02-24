@@ -20,15 +20,15 @@ class BaseValidator:
     """Validator class for an experiment."""
 
     def __init__(
-            self,
-            valid_data: D.Dataset,
-            valid_formatter: BaseFormatter,
-            valid_metric: BaseMetric,
-            save_path: Path,
-            batch_size: int,
-            workers: int,
-            mode: str,
-            logger: Type[BaseLogger] = AsyncLogger,
+        self,
+        valid_data: D.Dataset,
+        valid_formatter: BaseFormatter,
+        valid_metric: BaseMetric,
+        save_path: Path,
+        batch_size: int,
+        workers: int,
+        mode: str,
+        logger: Type[BaseLogger] = AsyncLogger,
     ) -> None:
         """Construct validator.
 
@@ -71,11 +71,11 @@ class BaseValidator:
         return self.valid_metric.maximise()
 
     def validate(
-            self,
-            model: nn.Module,
-            epoch: int,
-            iters: int,
-            device: torch.device,
+        self,
+        model: nn.Module,
+        epoch: int,
+        iters: int,
+        device: torch.device,
     ) -> Tuple[float, float]:
         """Perform validation on an instance of the trained model.
 
@@ -112,8 +112,7 @@ class BaseValidator:
             loss = 0.0
 
             for batch in tqdm(
-                    self.valid_data,
-                    desc=f"{self.mode} for {epoch} in Progress..."
+                self.valid_data, desc=f"{self.mode} for {epoch} in Progress..."
             ):
                 output = model.compute_batch(batch, device)
                 batch_loss = model.compute_loss(batch, output, device)
@@ -130,11 +129,12 @@ class BaseValidator:
             {
                 "epoch": epoch,
                 f"{self.mode}_loss": batch_loss,
-            } | {f"{self.mode}_{k}": v for k, v in agg_metrics.items()},
+            }
+            | {f"{self.mode}_{k}": v for k, v in agg_metrics.items()},
             step=iters,
         )
 
-        with open(log_path / "summary.json", 'w') as f_summary:
+        with open(log_path / "summary.json", "w") as f_summary:
             json.dump(agg_metrics, f_summary, indent=4)
 
         return loss, final_metric

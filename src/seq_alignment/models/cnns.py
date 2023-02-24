@@ -2,19 +2,17 @@
 
 import torch
 from torch import nn
-from torchvision.models import (
-    resnet18,
-    resnet34,
-    resnet50,
-    resnet101,
-    resnet152
-)
+from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
 
 from torchvision.models import (
-    vgg11, vgg11_bn,
-    vgg13, vgg13_bn,
-    vgg16, vgg16_bn,
-    vgg19, vgg19_bn,
+    vgg11,
+    vgg11_bn,
+    vgg13,
+    vgg13_bn,
+    vgg16,
+    vgg16_bn,
+    vgg19,
+    vgg19_bn,
 )
 
 

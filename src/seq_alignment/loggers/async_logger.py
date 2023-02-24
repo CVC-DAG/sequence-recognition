@@ -74,11 +74,13 @@ class AsyncLogger(BaseLogger):
         batch: BatchedSample
             An input batch with ground truth and filename data.
         """
-        self._jobs.append(self._pool.apply_async(
-            self._processor,
-            (output, batch, self._metric_queue, self._result_queue),
-            error_callback=_error_callback,
-        ))
+        self._jobs.append(
+            self._pool.apply_async(
+                self._processor,
+                (output, batch, self._metric_queue, self._result_queue),
+                error_callback=_error_callback,
+            )
+        )
 
     def aggregate(self) -> Dict[str, Any]:
         """Aggregate logged metrics.
@@ -128,9 +130,10 @@ def _writer(
                 v.close()
             return
         img_names, output = content
-        write_dict = {name: {img_name: out[name]
-                      for img_name, out in zip(img_names, output)}
-                      for name in names}
+        write_dict = {
+            name: {img_name: out[name] for img_name, out in zip(img_names, output)}
+            for name in names
+        }
         for k, v in write_dict.items():
             f_out = metric_paths[k]
             pickle.dump(v, f_out)

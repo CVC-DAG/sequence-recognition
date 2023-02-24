@@ -15,8 +15,9 @@ class ModelZoo:
     @classmethod
     def register_model(cls, cl) -> None:
         """Register a model in the Zoo alongside its configuration."""
-        assert cl.__name__ not in cls._models, \
-            "Overriding an existing model in the Model Zoo"
+        assert (
+            cl.__name__ not in cls._models
+        ), "Overriding an existing model in the Model Zoo"
 
         cls._models[cl.__name__] = cl
         cls._configs[cl.__name__] = cl.MODEL_CONFIG

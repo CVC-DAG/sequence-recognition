@@ -46,7 +46,7 @@ class GenericSample(NamedTuple):
     """Represents a sample after the image is loaded."""
 
     gt: ArrayLike
-    og_len: int         # Fixme: Should change to the range of valid tokens.
+    og_len: int  # Fixme: Should change to the range of valid tokens.
     segm: ArrayLike
     filename: str
 
@@ -126,12 +126,12 @@ class GenericDecryptVocab:
         padded = np.full(pad_len, self.vocab2index[self.pad_tok])
         if special:
             assert len(encoded) + 2 <= pad_len
-            padded[1: len(encoded) + 1] = encoded
+            padded[1 : len(encoded) + 1] = encoded
             padded[0] = self.go_tok
             padded[len(encoded) + 1] = self.stop_tok
         else:
             assert len(encoded) <= pad_len
-            padded[:len(encoded)] = encoded
+            padded[: len(encoded)] = encoded
         return padded
 
     def unpad(self, padded: List[int]) -> List[int]:
@@ -171,7 +171,7 @@ class DataConfig(BaseModel):
     target_shape: Coordinate
     target_seqlen: int
     aug_pipeline: Optional[str]
-    hflip: bool = False   
+    hflip: bool = False
     # Be reminded that for bounding boxes to be arranged properly, the maximum
     # coordinate within the segm file should match the rightmost point in the image
     # (in other words, the max x). The way it is done now allows for the coordinate
@@ -238,7 +238,7 @@ class GenericDecryptDataset(D.Dataset):
                 transcript = transcript[::-1]
 
             segmentation = np.full((self._seqlen, 2), -1)
-            segmentation[:len(segm)] = segm
+            segmentation[: len(segm)] = segm
 
             og_len = len(transcript)
             transcript = vocab.prepare_data(transcript, self._seqlen)

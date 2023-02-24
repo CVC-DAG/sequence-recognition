@@ -124,7 +124,7 @@ class BaseTrainer:
 
         self.epoch_end_hook = epoch_end_hook or (lambda x: True)
 
-        self.best_metric = - math.inf if self.validator.maximise() else math.inf
+        self.best_metric = -math.inf if self.validator.maximise() else math.inf
 
         self.curr_name = lambda epoch: f"weights_e{epoch:04}.pth"
         self.best_name = "weights_BEST.pth"
@@ -262,7 +262,9 @@ class BaseTrainer:
         return scheduler
 
     @staticmethod
-    def _create_dataloader(config: BaseTrainerConfig, dataset: D.Dataset) -> D.DataLoader:
+    def _create_dataloader(
+        config: BaseTrainerConfig, dataset: D.Dataset
+    ) -> D.DataLoader:
         dataloader = D.DataLoader(
             dataset,
             batch_size=config.batch_size,
@@ -323,12 +325,8 @@ class BaseTrainer:
             for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
                 self.train_iters += 1
 
-                output = self.model.compute_batch(
-                    batch, self.device
-                )
-                batch_loss = self.model.compute_loss(
-                    batch, output, self.device
-                )
+                output = self.model.compute_batch(batch, self.device)
+                batch_loss = self.model.compute_loss(batch, output, self.device)
 
                 self.optimizer.zero_grad()
                 batch_loss.backward()
@@ -359,7 +357,7 @@ class BaseTrainer:
             curr_logger.close()
             agg_metrics = curr_logger.aggregate()
 
-            with open(log_path / "summary.json", 'w') as f_summary:
+            with open(log_path / "summary.json", "w") as f_summary:
                 json.dump(agg_metrics, f_summary, indent=4)
 
             wandb.log(
@@ -375,8 +373,9 @@ class BaseTrainer:
                     self.model, epoch, self.train_iters, self.device
                 )
 
-                if (self.validator.maximise() and criterion > self.best_metric) or \
-                        not (self.validator.maximise() and criterion < self.best_metric):
+                if (self.validator.maximise() and criterion > self.best_metric) or not (
+                    self.validator.maximise() and criterion < self.best_metric
+                ):
                     self.best_metric = criterion
                     self.best_epoch = epoch
 

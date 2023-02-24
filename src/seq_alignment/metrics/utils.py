@@ -33,14 +33,14 @@ class Compose(BaseMetric):
         self._agg_keys = [x for mtr in self.metrics for x in mtr.keys()]
 
         if len(set(self.KEYS)) != self.KEYS:
-            warn("There are duplicate key names within the composition metric."
-                 "This will lead to some results being overwritten. Double check "
-                 "your class definitions for metrics.")
+            warn(
+                "There are duplicate key names within the composition metric."
+                "This will lead to some results being overwritten. Double check "
+                "your class definitions for metrics."
+            )
 
     def __call__(
-            self,
-            output: List[Dict[str, Any]],
-            batch: BatchedSample
+        self, output: List[Dict[str, Any]], batch: BatchedSample
     ) -> Dict[str, ArrayLike]:
         """Compute multiple metrics between a set of predictions and the GT.
 

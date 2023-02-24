@@ -17,9 +17,7 @@ class CTCModel(BaseInferenceModel):
         super().__init__()
         self.loss = nn.CTCLoss()
 
-    def compute_batch(
-            self, batch: BatchedSample, device: torch.device
-    ) -> torch.Tensor:
+    def compute_batch(self, batch: BatchedSample, device: torch.device) -> torch.Tensor:
         """Generate the model's output for a single input batch.
 
         Parameters
@@ -85,9 +83,7 @@ class FullyConvCTC(CTCModel):
     MODEL_CONFIG = FullyConvCTCConfig
 
     def __init__(
-            self,
-            model_config: FullyConvCTCConfig,
-            data_config: DataConfig
+        self, model_config: FullyConvCTCConfig, data_config: DataConfig
     ) -> None:
         """Initialise FullyConv model from parameters.
 
@@ -103,8 +99,7 @@ class FullyConvCTC(CTCModel):
         self._model_config = model_config
         self._data_config = data_config
         self._backbone = create_resnet(
-            self._model_config.resnet_type,
-            self._model_config.pretrained
+            self._model_config.resnet_type, self._model_config.pretrained
         )
         self._pooling = nn.AdaptiveAvgPool2d((1, None))
 
@@ -144,13 +139,13 @@ class FullyConvCTC(CTCModel):
             matrix may be used in a CTC loss.
         """
         # x: N x 3   x H       x W
-        x = self._backbone(x)       # N x 512 x H // 32 x W // 32
-        x = self._pooling(x)        # N x 512 x 1       x W // 32
-        x = self._upsample(x)       # N x INT x 1       x ~(W // 32 - 1) * K
+        x = self._backbone(x)  # N x 512 x H // 32 x W // 32
+        x = self._pooling(x)  # N x 512 x 1       x W // 32
+        x = self._upsample(x)  # N x INT x 1       x ~(W // 32 - 1) * K
         x = self._activation(x)
-        x = self._output(x)         # N x CLS x~(W // 32 - 1) * K
-        x = x.squeeze(2)            # N x INT x ~(W // 32 - 1) * K
-        x = x.permute((2, 0, 1))    # ~(W // 32 - 1) * K x N x  CLS
+        x = self._output(x)  # N x CLS x~(W // 32 - 1) * K
+        x = x.squeeze(2)  # N x INT x ~(W // 32 - 1) * K
+        x = x.permute((2, 0, 1))  # ~(W // 32 - 1) * K x N x  CLS
         y = self._softmax(x)
 
         return y
@@ -170,9 +165,7 @@ class FullyConvCTC(CTCModel):
         """
         raise NotImplementedError
 
-    def compute_loss(
-        self, batch: BatchedSample, output: torch.Tensor
-    ) -> torch.float32:
+    def compute_loss(self, batch: BatchedSample, output: torch.Tensor) -> torch.float32:
         """Generate the model's loss for a single input batch and output.
 
         Parameters
@@ -206,11 +199,7 @@ class BaroCRNN(CTCModel):
 
     MODEL_CONFIG = BaroCRNNConfig
 
-    def __init__(
-            self,
-            model_config: BaroCRNNConfig,
-            data_config: DataConfig
-    ) -> None:
+    def __init__(self, model_config: BaroCRNNConfig, data_config: DataConfig) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
@@ -236,8 +225,7 @@ class BaroCRNN(CTCModel):
             bidirectional=self.model_config.blstm,
         )
         self.linear = nn.Linear(
-            self.model_config.lstm_hidden_size,
-            self.model_config.output_classes
+            self.model_config.lstm_hidden_size, self.model_config.output_classes
         )
         self.log_softmax = nn.LogSoftmax(-1)
 
@@ -264,20 +252,17 @@ class BaroCRNN(CTCModel):
         """
         x = self.backbone(x)
         x = x.permute(2, 0, 1)  # Length, Batch, Hidden
-        x, _ = self.lstm(x)     # Length, Batch, Hidden * Directions
+        x, _ = self.lstm(x)  # Length, Batch, Hidden * Directions
 
         if self.directions > 1:
             seq_len, batch_size, hidden_size = x.shape
 
             x = x.view(
-                seq_len,
-                batch_size,
-                self.directions,
-                hidden_size // self.directions
+                seq_len, batch_size, self.directions, hidden_size // self.directions
             )
             x = x.sum(axis=2)
 
-        x = self.linear(x)      # Length, Batch, Classes
+        x = self.linear(x)  # Length, Batch, Classes
         x = self.log_softmax(x)
 
         return x
@@ -302,11 +287,7 @@ class ResnetCRNN(CTCModel):
 
     MODEL_CONFIG = ResnetCRNNConfig
 
-    def __init__(
-            self,
-            model_config: ResnetCRNNConfig,
-            data_config: DataConfig
-    ) -> None:
+    def __init__(self, model_config: ResnetCRNNConfig, data_config: DataConfig) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
@@ -324,10 +305,7 @@ class ResnetCRNN(CTCModel):
         self.directions = 2 if self.model_config.blstm else 1
         self.hidden_size = RESNET_EMBEDDING_SIZES[self.model_config.resnet_type]
 
-        self.backbone = create_resnet(
-            self.model_config.resnet_type,
-            headless=True
-        )
+        self.backbone = create_resnet(self.model_config.resnet_type, headless=True)
         self.avg_pool = nn.AdaptiveAvgPool2d((1, None))
         self.upsample = nn.ConvTranspose2d(
             in_channels=self.hidden_size,
@@ -343,8 +321,7 @@ class ResnetCRNN(CTCModel):
             dropout=self.model_config.dropout,
         )
         self.output_layer = nn.Linear(
-            self.model_config.lstm_hidden_size,
-            self.model_config.output_classes
+            self.model_config.lstm_hidden_size, self.model_config.output_classes
         )
         self.log_softmax = nn.LogSoftmax(dim=-1)
 
@@ -369,23 +346,21 @@ class ResnetCRNN(CTCModel):
             N is the batch size and C is the number of output classes. This
             matrix may be used in a CTC loss.
         """
-        x = self.backbone(x)    # Batch, Channels, Height, Width // 16
-        x = self.avg_pool(x)    # Batch, Channels, 1, Width // 16
-        x = self.upsample(x)    # Batch, Channels, 1, Length
-        x = x.squeeze(2)        # Batch, Channels, Length
+        x = self.backbone(x)  # Batch, Channels, Height, Width // 16
+        x = self.avg_pool(x)  # Batch, Channels, 1, Width // 16
+        x = self.upsample(x)  # Batch, Channels, 1, Length
+        x = x.squeeze(2)  # Batch, Channels, Length
         x = x.permute(2, 0, 1)  # Length, Batch, Hidden
-        x, _ = self.lstm(x)     # Length, Batch, Hidden * Directions
+        x, _ = self.lstm(x)  # Length, Batch, Hidden * Directions
 
         if self.directions > 1:
             seq_len, batch_size, hidden_size = x.shape
             x = x.view(
-                seq_len,
-                batch_size,
-                self.directions, hidden_size // self.directions
+                seq_len, batch_size, self.directions, hidden_size // self.directions
             )
             x = x.sum(axis=2)
 
-        x = self.output_layer(x)      # Length, Batch, Classes
+        x = self.output_layer(x)  # Length, Batch, Classes
         x = self.log_softmax(x)
 
         return x

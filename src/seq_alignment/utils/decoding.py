@@ -12,7 +12,7 @@ from typing import List, Optional, NamedTuple, Tuple
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .ops import seqiou, sequiou_multiple
+from .ops import seqiou, sequiou_multiple, levenshtein
 
 
 BLANK_CHARACTER: int = 0
@@ -166,6 +166,18 @@ class Prediction:
         return cls(coordinates, confidences, characters)
 
     @classmethod
+    def from_detector(
+        cls,
+        pred_text: ArrayLike,
+        gt_text: ArrayLike,
+        coords: ArrayLike,
+        confs: ArrayLike,
+    ) -> Prediction:
+        dist, mat = levenshtein(pred_text, gt_text)
+        mat = np.array(mat)
+        return cls()
+
+    @classmethod
     def from_text_coords(
         cls,
         coordinates: ArrayLike,
@@ -238,10 +250,12 @@ class PredictionGroup:
         other: PredictionGroup
             A second PredictionGroup to merge the data with.
         """
-        assert len(self._gt_sequence) == len(other._gt_sequence), \
-            "Predictions from different ground truth sequences."
-        assert np.all(self._gt_sequence == other._gt_sequence), \
-            "Predictions from different ground truth sequences."
+        assert len(self._gt_sequence) == len(
+            other._gt_sequence
+        ), "Predictions from different ground truth sequences."
+        assert np.all(
+            self._gt_sequence == other._gt_sequence
+        ), "Predictions from different ground truth sequences."
 
         predictions = self._predictions + other._predictions
         names = self._names + other._names
@@ -258,7 +272,7 @@ class PredictionGroup:
         all methods. The idea is finding those predictions in which plenty of methods
         agree or whose properties make sense in the overall scheme of things (no huge
         characters, no missed elements, etc).
-        
+
         Parameters
         ----------
         iou_thresh: float
@@ -278,7 +292,7 @@ class PredictionGroup:
         newpreds = np.stack([newx1, newx2], axis=-1)
         nullboxes = np.full(newpreds.shape, -1)
 
-        anchors = np.where(agreement, newpreds, nullboxes)
+        anchors = np.where(agreement[:, None], newpreds, nullboxes)
 
         return anchors
 

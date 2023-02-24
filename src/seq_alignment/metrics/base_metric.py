@@ -17,9 +17,7 @@ class BaseMetric(ABC):
 
     @abstractmethod
     def __call__(
-            self,
-            output: List[Dict[str, Any]],
-            batch: BatchedSample
+        self, output: List[Dict[str, Any]], batch: BatchedSample
     ) -> Dict[str, ArrayLike]:
         """Compute the difference between a set of predictions and the GT.
 

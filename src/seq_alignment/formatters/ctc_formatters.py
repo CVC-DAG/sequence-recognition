@@ -32,9 +32,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
         self.vocab = vocab
 
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Convert a model output to a sequence of coordinate predictions.
 
@@ -61,10 +59,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
 
         for mat, transcript, csize in zip(model_output, batch.gt, csizes):
             transcript = np.array(self.vocab.unpad(transcript.numpy()))
-            tree = PrefixTree(
-                transcript,
-                self.beam_width
-            )
+            tree = PrefixTree(transcript, self.beam_width)
             decoding = tree.decode(mat)
             prediction = Prediction.from_ctc_decoding(
                 decoding,
@@ -72,8 +67,12 @@ class OptimalCoordinateDecoder(BaseFormatter):
                 mat,
                 csize,
             )
-            outputs.append({self.KEY_COORD1D: prediction.get_coords(),
-                            self.KEY_COORD1D_CONF: prediction.get_confidences()})
+            outputs.append(
+                {
+                    self.KEY_COORD1D: prediction.get_coords(),
+                    self.KEY_COORD1D_CONF: prediction.get_confidences(),
+                }
+            )
         return outputs
 
 
@@ -89,9 +88,7 @@ class GreedyTextDecoder(BaseFormatter):
         super().__init__()
 
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, ArrayLike]]:
         """Convert a model output to a token sequence.
 
@@ -117,6 +114,5 @@ class GreedyTextDecoder(BaseFormatter):
             nonzero = sample != 0
             text_ind = sample[nonzero]
             text_cnf = mat[nonzero]
-            output.append({self.KEY_TEXT: text_ind,
-                           self.KEY_TEXT_CONF: text_cnf})
+            output.append({self.KEY_TEXT: text_ind, self.KEY_TEXT_CONF: text_cnf})
         return output

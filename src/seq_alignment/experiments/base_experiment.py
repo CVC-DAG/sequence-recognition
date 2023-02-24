@@ -33,6 +33,7 @@ class ExperimentConfig(BaseModel):
     @classmethod
     def generate_template(cls) -> Dict:
         """Generate a config representation for the current experiment."""
+
         def generate_subdict(tt):
             output = {}
             for name, field in tt.items():
@@ -47,6 +48,7 @@ class ExperimentConfig(BaseModel):
                     else:
                         output[name] = str(subt)
             return output
+
         return generate_subdict(cls.__fields__)
 
 
@@ -62,9 +64,9 @@ class Experiment(ABC):
 
     @staticmethod
     def _load_configuration(
-            config_path: str,
-            test: bool,
-            config_type: Type,
+        config_path: str,
+        test: bool,
+        config_type: Type,
     ) -> ExperimentConfig:
         path = Path(config_path)
         with open(path, "r") as f_config:
@@ -76,8 +78,8 @@ class Experiment(ABC):
 
     @staticmethod
     def _setup_dirs(
-            cfg: DirectoryConfig,
-            exp_name: str,
+        cfg: DirectoryConfig,
+        exp_name: str,
     ) -> DirectoryConfig:
         results_path = Path(cfg.results_dir) / exp_name
         results_path.mkdir(exist_ok=True, parents=True)
@@ -132,18 +134,12 @@ class Experiment(ABC):
         args = parser.parse_args()
 
         if args.get_template:
-            with open(args.get_template, 'w') as f_json:
-                json.dump(
-                    self.EXPERIMENT_CONFIG.generate_template(),
-                    f_json,
-                    indent=4
-                )
+            with open(args.get_template, "w") as f_json:
+                json.dump(self.EXPERIMENT_CONFIG.generate_template(), f_json, indent=4)
                 quit()
 
         cfg = self._load_configuration(
-            args.config_path,
-            args.test is not None,
-            self.EXPERIMENT_CONFIG
+            args.config_path, args.test is not None, self.EXPERIMENT_CONFIG
         )
         self._setup_dirs(
             cfg.dirs,
@@ -176,11 +172,6 @@ class Experiment(ABC):
         """Run the experiment."""
         if self.test_weights:
             self.model.load_weights(self.test)
-            self.tester(
-                self.model,
-                0,
-                0,
-                self.trainer.device
-            )
+            self.tester(self.model, 0, 0, self.trainer.device)
         else:
             self.trainer.train()

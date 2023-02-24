@@ -16,9 +16,7 @@ class BaseFormatter(ABC):
 
     @abstractmethod
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Convert a model output to any other formatting.
 

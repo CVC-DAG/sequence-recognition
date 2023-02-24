@@ -13,9 +13,7 @@ from typing import List, NamedTuple, Tuple
 RE_CIPHER = re.compile(r"(\w+)_(\w+)")
 
 
-def imshow(
-        img: np.array
-) -> None:
+def imshow(img: np.array) -> None:
     plt.figure()
     plt.imshow(img)
     plt.show()
@@ -25,11 +23,7 @@ def imshow(
 root_path = Path("/home/ptorras/Documents/Datasets/decrypt/Validated")
 output_path = Path("/home/ptorras/Documents/Datasets/decrypt_cleanup")
 
-split_lut = {
-    "training": "train",
-    "valid": "valid",
-    "test": "test"
-}
+split_lut = {"training": "train", "valid": "valid", "test": "test"}
 
 
 class BoundingBox(NamedTuple):
@@ -52,9 +46,13 @@ for folder in root_path.iterdir():
     for page in folder.iterdir():
         page_name = page.name
 
-        img_fname = f"{page_name}.png" if (page / f"{page_name}.png").exists() \
-            else f"{page_name}.jpg" if (page / f"{page_name}.jpg").exists() \
+        img_fname = (
+            f"{page_name}.png"
+            if (page / f"{page_name}.png").exists()
+            else f"{page_name}.jpg"
+            if (page / f"{page_name}.jpg").exists()
             else f"{page_name}.jpeg"
+        )
         ann_fname = f"{img_fname}.xml"
 
         xml_root = ET.parse(str(page / ann_fname)).getroot()
@@ -74,10 +72,14 @@ for folder in root_path.iterdir():
 
             for symbol_element in line_element.iter("symbol"):
                 symbol = symbol_element.attrib["text"]
-                line_bboxes.append(tuple(
-                    [int(symbol_element.attrib[k])
-                     for k in ["x1", "x2", "y1", "y2"]]
-                ))
+                line_bboxes.append(
+                    tuple(
+                        [
+                            int(symbol_element.attrib[k])
+                            for k in ["x1", "x2", "y1", "y2"]
+                        ]
+                    )
+                )
                 line_transcript.append(symbol)
 
             if cipher not in gt_data:
@@ -96,14 +98,16 @@ for folder in root_path.iterdir():
                 min(line_bboxes[:, 3].max(), height),
             )
 
-            img_slice = img[line_bounding.y1: line_bounding.y2,
-                            line_bounding.x1: line_bounding.x2,
-                            :]
+            img_slice = img[
+                line_bounding.y1 : line_bounding.y2,
+                line_bounding.x1 : line_bounding.x2,
+                :,
+            ]
 
             line_name = f"{page_name}_{ii:04d}.png"
 
             width_coords = line_bboxes[:, :2]
-            width_coords = (width_coords - width_coords[0, 0])  # INFO should norm here
+            width_coords = width_coords - width_coords[0, 0]  # INFO should norm here
 
             curr_dict[line_name] = {
                 "segm": width_coords.tolist(),
@@ -114,5 +118,5 @@ for folder in root_path.iterdir():
                 img_slice,
             )
 
-    with open(output_path / cipher / f"gt_lines_{split}.json", 'w') as f_json:
+    with open(output_path / cipher / f"gt_lines_{split}.json", "w") as f_json:
         json.dump(gt_data[cipher][split], f_json)

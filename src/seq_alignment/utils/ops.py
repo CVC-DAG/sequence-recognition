@@ -35,19 +35,21 @@ def iou(ref, cmp, thresh=None):
     s_cmp = np.stack([cmp] * N, axis=0)
 
     # Intersection
-    intr_x = np.min(np.stack((s_ref[:,:,2], s_cmp[:,:,2]), axis=0), axis=0) - \
-             np.max(np.stack((s_ref[:,:,0], s_cmp[:,:,0]), axis=0), axis=0)
+    intr_x = np.min(
+        np.stack((s_ref[:, :, 2], s_cmp[:, :, 2]), axis=0), axis=0
+    ) - np.max(np.stack((s_ref[:, :, 0], s_cmp[:, :, 0]), axis=0), axis=0)
     intr_x = np.maximum(intr_x, 0)
 
-    intr_y = np.min(np.stack((s_ref[:,:,3], s_cmp[:,:,3]), axis=0), axis=0) - \
-             np.max(np.stack((s_ref[:,:,1], s_cmp[:,:,1]), axis=0), axis=0)
+    intr_y = np.min(
+        np.stack((s_ref[:, :, 3], s_cmp[:, :, 3]), axis=0), axis=0
+    ) - np.max(np.stack((s_ref[:, :, 1], s_cmp[:, :, 1]), axis=0), axis=0)
     intr_y = np.maximum(intr_y, 0)
 
     intr_t = intr_x * intr_y
 
     # Union
-    area_r = (s_ref[:,:,2] - s_ref[:,:,0]) * (s_ref[:,:,3] - s_ref[:,:,1])
-    area_c = (s_cmp[:,:,2] - s_cmp[:,:,0]) * (s_cmp[:,:,3] - s_cmp[:,:,1])
+    area_r = (s_ref[:, :, 2] - s_ref[:, :, 0]) * (s_ref[:, :, 3] - s_ref[:, :, 1])
+    area_c = (s_cmp[:, :, 2] - s_cmp[:, :, 0]) * (s_cmp[:, :, 3] - s_cmp[:, :, 1])
 
     union = area_r + area_c - intr_t
 
@@ -66,14 +68,14 @@ def fiou(bboxes1, bboxes2):
     over-union-iou-in-numpy-and-tensor-flow-4fa16231b63d
     We compared it against our own and decided to use this as it is much more
     memory efficient.
-    
+
     Parameters
     ----------
-    bboxes1: ArrayLike 
+    bboxes1: ArrayLike
         Array of bounding boxes in XYXY format.
-    bboxes2: ArrayLike 
+    bboxes2: ArrayLike
         Array of bounding boxes in XYXY format.
-    
+
     Returns
     -------
     ArrayLike
@@ -163,7 +165,7 @@ def sequiou_multiple(bbox_set: ArrayLike) -> ArrayLike:
     bbox_set: ArrayLike
         A set of bounding boxes with shape N x L x 2 where N is the number of
         predictions and L is the sequence length.
-    
+
     Returns
     -------
     ArrayLike:
@@ -172,7 +174,7 @@ def sequiou_multiple(bbox_set: ArrayLike) -> ArrayLike:
     n, l, _ = bbox_set.shape
     x1, x2 = np.split(bbox_set, 2, axis=-1)
     x1, x2 = x1.squeeze(-1), x2.squeeze(-1)
-    
+
     x1max = np.max(x1, axis=0)
     x1min = np.min(x1, axis=0)
     x2max = np.max(x2, axis=0)
@@ -222,11 +224,12 @@ def compare_gt(iou, confidence):
     for ii in range(len(conflicts)):
         # Conflicting gt box
         conflict = vals[conflicts[ii]]
-        points_conflict = (belonging == conflict)
+        points_conflict = belonging == conflict
         losers = np.nonzero(
-                (confidence < np.max(confidence[points_conflict])) &
-                (points_conflict) &
-                (max_iou > 0))
+            (confidence < np.max(confidence[points_conflict]))
+            & (points_conflict)
+            & (max_iou > 0)
+        )
         belonging[losers] = -1
     return belonging
 
@@ -282,7 +285,9 @@ def nonmax_supression(boxes, confidence, labels, confthresh=0.6, iouthresh=0.5):
         out_conf.append(confidence[0])
         out_labels.append(labels[0])
 
-        non_collisions = np.nonzero(iou(box[None, :], boxes, iouthresh).squeeze(axis=0) == 0)[0]
+        non_collisions = np.nonzero(
+            iou(box[None, :], boxes, iouthresh).squeeze(axis=0) == 0
+        )[0]
         boxes = boxes[non_collisions]
         confidence = confidence[non_collisions]
         labels = labels[non_collisions]
@@ -312,15 +317,18 @@ def avg_precision(gt, pred):
     """
     cumulative_tp = np.cumsum(gt == pred)
     cumulative_fn = np.cumsum(pred == -1)
-    cumulative_fp = np.arange(1, len(cumulative_tp) + 1) - \
-        (cumulative_fn + cumulative_tp)
+    cumulative_fp = np.arange(1, len(cumulative_tp) + 1) - (
+        cumulative_fn + cumulative_tp
+    )
 
     step_recall = cumulative_tp / (cumulative_tp + cumulative_fp)
-    prec_denominator = (cumulative_tp + cumulative_fn)
-    step_precision = np.divide(cumulative_tp.astype(np.float),
-                               prec_denominator.astype(np.float),
-                               out=np.zeros(cumulative_tp.shape, dtype=np.float),
-                               where=prec_denominator != 0)
+    prec_denominator = cumulative_tp + cumulative_fn
+    step_precision = np.divide(
+        cumulative_tp.astype(np.float),
+        prec_denominator.astype(np.float),
+        out=np.zeros(cumulative_tp.shape, dtype=np.float),
+        where=prec_denominator != 0,
+    )
 
     mono_precision = np.flip(np.maximum.accumulate(np.flip(step_precision)))
 
@@ -333,49 +341,35 @@ def avg_precision(gt, pred):
 def levenshtein(source, target) -> Tuple[float, List]:
     """Compute the Levenshtein distance between two strings."""
     matrix = []
-    # if len(source) < len(target):
-    # return levenshtein(target, source)
-    # So now we have len(source) >= len(target).
+
     if len(target) == 0:
         return len(source)
 
     # We call tuple() to force strings to be used as sequences
-    # ('c', 'a', 't', 's') - numpy uses them as values by default.
     source = np.array(tuple(source))
     target = np.array(tuple(target))
 
-    # We use a dynamic programming algorithm, but with the
-    # added optimization that we only need the last two rows
-    # of the matrix.
     previous_row = np.arange(target.size + 1)
-    # print previous_row
 
     matrix.append(previous_row)
     for s in source:
-        # Insertion (target grows longer than source):
         current_row = previous_row + 1
-
-        # Substitution or matching:
-        # Target and source items are aligned, and either
-        # are different (cost of 1), or are the same (cost of 0).
-
         current_row[1:] = np.minimum(
-            current_row[1:],
-            np.add(previous_row[:-1], target != s))
-
-        # Deletion (target grows shorter than source):
-        current_row[1:] = np.minimum(
-            current_row[1:],
-            current_row[0:-1] + 1)
+            current_row[1:], np.add(previous_row[:-1], target != s)
+        )
+        current_row[1:] = np.minimum(current_row[1:], current_row[0:-1] + 1)
 
         previous_row = current_row
         matrix.append(previous_row)
-        # print previous_row
 
-    return (previous_row[-1] / float(len(target)), matrix)
+    return previous_row[-1] / float(len(target)), np.array(matrix)
+
+
+def edit_path(matrix: ArrayLike) -> List[str]:
+    ...
 
 
 def moving_average(a, n=3):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
+    return ret[n - 1 :] / n

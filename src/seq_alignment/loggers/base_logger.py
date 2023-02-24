@@ -18,7 +18,7 @@ class BaseLogger(ABC):
 
     def load_prediction(self, path: Path) -> Dict[str, Any]:
         """Load a prediction pickle file into memory.
-        
+
         Parameters
         ----------
         path: Path
@@ -127,9 +127,12 @@ class SimpleLogger(BaseLogger):
         names: List[str]
             A list of file names aligned to each metric_res element.
         """
-        write_dict = {metric_name: {img_name: out[metric_name]
-                      for img_name, out in zip(names, metric_res)}
-                      for metric_name in self._metric.keys()}
+        write_dict = {
+            metric_name: {
+                img_name: out[metric_name] for img_name, out in zip(names, metric_res)
+            }
+            for metric_name in self._metric.keys()
+        }
         for k, v in write_dict.items():
             f_out = self._metric_paths[k]
             pickle.dump(v, f_out)
@@ -150,9 +153,12 @@ class SimpleLogger(BaseLogger):
         names: List[str]
             A list of file names aligned to each final_res element.
         """
-        write_dict = {metric_name: {img_name: out[metric_name]
-                      for img_name, out in zip(names, final_res)}
-                      for metric_name in self._formatter.keys()}
+        write_dict = {
+            metric_name: {
+                img_name: out[metric_name] for img_name, out in zip(names, final_res)
+            }
+            for metric_name in self._formatter.keys()
+        }
         for k, v in write_dict.items():
             f_out = self._result_paths[k]
             pickle.dump(v, f_out)

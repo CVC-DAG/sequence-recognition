@@ -22,9 +22,7 @@ class Levenshtein(BaseMetric):
         self.vocab = vocab
 
     def __call__(
-            self,
-            output: List[Dict[str, Any]],
-            batch: BatchedSample
+        self, output: List[Dict[str, Any]], batch: BatchedSample
     ) -> Dict[str, ArrayLike]:
         """Compute the difference between a set of predictions and the GT.
 
@@ -74,5 +72,4 @@ class Levenshtein(BaseMetric):
             Average of seqiou predictions for all bounding boxes.
         """
         preds = np.array([pred["levenshtein"] for pred in metrics])
-        return {"mean_levenshtein": np.mean(preds),
-                "std_levenshtein": np.std(preds)}
+        return {"mean_levenshtein": np.mean(preds), "std_levenshtein": np.std(preds)}

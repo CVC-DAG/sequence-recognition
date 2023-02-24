@@ -25,14 +25,14 @@ class Compose(BaseFormatter):
         self._keys = [x for fmt in self.formatters for x in fmt.KEYS]
 
         if len(set(self._keys)) != (len(self._keys)):
-            warn("There are duplicate key names within the composition formatter."
-                 "This will lead to some results being overwritten. Double check "
-                 "your class definitions for formatters.")
+            warn(
+                "There are duplicate key names within the composition formatter."
+                "This will lead to some results being overwritten. Double check "
+                "your class definitions for formatters."
+            )
 
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Compute multiple formatters between a set of predictions and the GT.
 
@@ -70,9 +70,7 @@ class AddFilename(BaseFormatter):
     KEYS = [KEY_FILENAME]
 
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Provide the filename to the formatted dict.
 
@@ -99,9 +97,7 @@ class AddGroundTruthText(BaseFormatter):
     KEYS = [KEY_GT]
 
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Provide the filename to the formatted dict.
 
@@ -128,9 +124,7 @@ class AddGroundTruthSegm(BaseFormatter):
     KEYS = [KEY_GT]
 
     def __call__(
-            self,
-            model_output: torch.Tensor,
-            batch: BatchedSample
+        self, model_output: torch.Tensor, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Provide the filename to the formatted dict.
 

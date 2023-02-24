@@ -21,9 +21,7 @@ class SeqIoU(BaseMetric):
         super().__init__()
 
     def __call__(
-            self,
-            output: List[Dict[str, Any]],
-            batch: BatchedSample
+        self, output: List[Dict[str, Any]], batch: BatchedSample
     ) -> Dict[str, ArrayLike]:
         """Compute the IoU of the output sequences and the ground truth.
 
@@ -75,7 +73,9 @@ class SeqIoU(BaseMetric):
         hits25 = np.count_nonzero(preds >= 0.25) / (len(preds) or 1)
         hits50 = np.count_nonzero(preds >= 0.50) / (len(preds) or 1)
         hits75 = np.count_nonzero(preds >= 0.75) / (len(preds) or 1)
-        return {"mean_iou": np.mean(preds),
-                "iou_hits_25": hits25,
-                "iou_hits_50": hits50,
-                "iou_hits_75": hits75}
+        return {
+            "mean_iou": np.mean(preds),
+            "iou_hits_25": hits25,
+            "iou_hits_50": hits50,
+            "iou_hits_75": hits75,
+        }

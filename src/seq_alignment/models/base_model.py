@@ -57,9 +57,7 @@ class BaseModel(nn.Module):
         state_dict = self.state_dict()
         torch.save(state_dict, path)
 
-    def compute_batch(
-            self, batch: BatchedSample, device: torch.device
-    ) -> torch.Tensor:
+    def compute_batch(self, batch: BatchedSample, device: torch.device) -> torch.Tensor:
         """Generate the model's output for a single input batch.
 
         Parameters

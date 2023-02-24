@@ -31,10 +31,10 @@ def plotimg(img: ArrayLike) -> None:
 
 
 def display_prediction(
-        fname: str,
-        pred_coords: ArrayLike,
-        gt_coords: ArrayLike,
-        output: str,
+    fname: str,
+    pred_coords: ArrayLike,
+    gt_coords: ArrayLike,
+    output: str,
 ) -> None:
     """Display a prediction alongside the ground truth.
 
@@ -50,7 +50,7 @@ def display_prediction(
     height, width, c = img.shape
 
     canvas = np.vstack([img, img, img])
-    canvas[height: 2*height, :, :] = 255
+    canvas[height : 2 * height, :, :] = 255
 
     ax.imshow(canvas)
 
@@ -62,22 +62,26 @@ def display_prediction(
     for ii, ((x1pd, x2pd), (x1gt, x2gt)) in enumerate(zip(pred_coords, gt_coords)):
         gt_width = x2gt - x1gt
         pd_width = x2pd - x1pd
-        ax.add_patch(patches.Rectangle(
-            (x1gt, y1gt),
-            gt_width,
-            height,
-            color=colors[ii],
-            alpha=0.5,
-            linewidth=1,
-        ))
-        ax.add_patch(patches.Rectangle(
-            (x1pd, y1pd),
-            pd_width,
-            height,
-            color=colors[ii],
-            alpha=0.5,
-            linewidth=1,
-        ))
+        ax.add_patch(
+            patches.Rectangle(
+                (x1gt, y1gt),
+                gt_width,
+                height,
+                color=colors[ii],
+                alpha=0.5,
+                linewidth=1,
+            )
+        )
+        ax.add_patch(
+            patches.Rectangle(
+                (x1pd, y1pd),
+                pd_width,
+                height,
+                color=colors[ii],
+                alpha=0.5,
+                linewidth=1,
+            )
+        )
         ax.arrow(
             x1gt + (gt_width / 2),
             y2gt,
@@ -86,14 +90,14 @@ def display_prediction(
             color=colors[ii],
             linewidth=1,
         )
-    fig.savefig(output, bbox_inches='tight', dpi=300)
+    fig.savefig(output, bbox_inches="tight", dpi=300)
     plt.close(fig)
 
 
 def display_bboxes(
-        fname: str,
-        bboxes: ArrayLike,
-        output: str,
+    fname: str,
+    bboxes: ArrayLike,
+    output: str,
 ) -> None:
     """Display a prediction on the image. Ignores negative bboxes.
 
@@ -115,15 +119,17 @@ def display_bboxes(
         if x1 < 0 and x2 < 0:
             continue
         width = x2 - x1
-        ax.add_patch(patches.Rectangle(
-            (x1, 0),
-            width,
-            height,
-            color=colors[ii],
-            alpha=0.5,
-            linewidth=1,
-        ))
-    fig.savefig(output, bbox_inches='tight', dpi=300)
+        ax.add_patch(
+            patches.Rectangle(
+                (x1, 0),
+                width,
+                height,
+                color=colors[ii],
+                alpha=0.5,
+                linewidth=1,
+            )
+        )
+    fig.savefig(output, bbox_inches="tight", dpi=300)
     plt.close(fig)
 
 
@@ -154,16 +160,18 @@ def display_bboxes_loaded(
         if x1 < 0 and x2 < 0:
             continue
         width = x2 - x1
-        ax.add_patch(patches.Rectangle(
-            (x1, 0),
-            width,
-            height,
-            color=colors[ii],
-            alpha=0.5,
-            linewidth=1,
-        ))
+        ax.add_patch(
+            patches.Rectangle(
+                (x1, 0),
+                width,
+                height,
+                color=colors[ii],
+                alpha=0.5,
+                linewidth=1,
+            )
+        )
     if output is None:
         plt.show()
     else:
-        fig.savefig(output, bbox_inches='tight', dpi=150)
+        fig.savefig(output, bbox_inches="tight", dpi=150)
     plt.close(fig)
