@@ -1,12 +1,15 @@
 """Nice function and operator collection."""
 
+import math
+
 import numpy as np
 from numpy.typing import ArrayLike
 from typing import List, Tuple
 
 
 def iou(ref, cmp, thresh=None):
-    """
+    """Intersection over Union computation.
+
     Returns the Intersection over Union of a given set of "cmp" grid-aligned
     rectangles against a set of reference "ref" grid-aligned rectangles.
     IoU values below "thresh" will be pulled to 0. If Thresh is None, results
@@ -365,8 +368,42 @@ def levenshtein(source, target) -> Tuple[float, List]:
     return previous_row[-1] / float(len(target)), np.array(matrix)
 
 
-def edit_path(matrix: ArrayLike) -> List[str]:
-    ...
+def edit_path(matrix: ArrayLike) -> List[Tuple[int, int, str]]:
+    matrix = matrix[::-1, ::-1]
+    rows, cols = matrix.shape
+
+    ii = 0
+    jj = 0
+
+    edits = []
+
+    while ii != rows - 1 and jj != cols - 1:
+        current_val = matrix[ii, jj]
+
+        south = matrix[ii + 1, jj] if ii < rows - 1 else math.inf
+        west = matrix[ii, jj + 1] if jj < cols - 1 else math.inf
+        diag = matrix[ii + 1, jj + 1] if ii < rows - 1 and jj < cols - 1 else math.inf
+
+        if diag == current_val:
+            ii = ii + 1
+            jj = jj + 1
+        else:
+            minval = min(south, west, diag)
+
+            if minval == diag:
+                edits.append((ii, jj, "sub"))
+                ii = ii + 1
+                jj = jj + 1
+            elif minval == south:
+                edits.append((ii, jj, "rem"))
+                ii = ii + 1
+                jj = jj
+            elif minval == west:
+                edits.append((ii, jj, "rem"))
+                ii = ii
+                jj = jj + 1
+    edits.reverse()
+    return edits
 
 
 def moving_average(a, n=3):
