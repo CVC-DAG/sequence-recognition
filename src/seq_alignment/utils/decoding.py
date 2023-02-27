@@ -174,9 +174,9 @@ class Prediction:
     ) -> Prediction:
         dist, mat = levenshtein(pred_text, gt_text)
         edits = edit_path(mat)
-        coords = edit_coords(coords, edits)
+        coords = edit_coords(coords, edits, len(gt_text))
 
-        return cls()
+        return cls(coords, np.ones(len(gt_text)), gt_text)
 
     @classmethod
     def from_text_coords(

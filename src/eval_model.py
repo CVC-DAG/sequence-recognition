@@ -178,13 +178,7 @@ class AlignmentEvaluator:
             text = pred_text[fn]
             coords = bboxes[fn]
             gt_seq = self._groundtruth[fn]["ts"]
-            file_confs = np.ones(len(text))
-            pred = Prediction.from_detector(
-                text,
-                gt_seq,
-                coords,
-                file_confs,
-            )
+            pred = Prediction.from_detector(text, gt_seq, coords)
             try:
                 groups[fn].add_prediction(pred, path.parent.stem)
             except KeyError:
