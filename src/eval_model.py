@@ -73,9 +73,9 @@ class AlignmentEvaluator:
     @staticmethod
     def _remove_filesystem_chars(token: str) -> str:
         token = token.lower()
-        token = token.replace(r'.', "dt")
+        token = token.replace(r".", "dt")
         token = token.replace(r'"', "qt")
-        token = token.replace(r':', "cl")
+        token = token.replace(r":", "cl")
         token = token.replace(r"'", "ap")
         return token
 

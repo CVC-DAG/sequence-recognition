@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 from numpy.typing import ArrayLike
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 
 def iou(ref, cmp, thresh=None):
@@ -341,16 +341,36 @@ def avg_precision(gt, pred):
     return AP
 
 
-def levenshtein(source, target) -> Tuple[float, List]:
-    """Compute the Levenshtein distance between two strings."""
+def levenshtein(
+    source: Union[ArrayLike, str],
+    target: Union[ArrayLike, str],
+) -> Tuple[float, ArrayLike]:
+    """Compute the Levenshtein distance between two strings.
+
+    Parameters
+    ----------
+    source: Union[ArrayLike, str]
+        An input sequence in a numpy array or a string.
+    target: Union[ArrayLike, str]
+        The sequence to compare to as a numpy array or a string.
+
+    Returns
+    -------
+    float
+        Levenshtein distance between both strings.
+    ArrayLike
+        Dynamic programming matrix for the string comparison process.
+    """
     matrix = []
 
     if len(target) == 0:
         return len(source)
 
     # We call tuple() to force strings to be used as sequences
-    source = np.array(tuple(source))
-    target = np.array(tuple(target))
+    if isinstance(source, str):
+        source = np.array(tuple(source))
+    if isinstance(source, str):
+        target = np.array(tuple(target))
 
     previous_row = np.arange(target.size + 1)
 
@@ -416,6 +436,134 @@ def edit_path(matrix: ArrayLike) -> List[Tuple[int, int, str]]:
             edits.append((ii, jj, "ins"))
     edits.reverse()
     return edits
+
+
+def edit_coords(
+    coords: ArrayLike,
+    edits: List[Tuple[int, int, str]],
+    gt_len: int,
+) -> ArrayLike:
+    """Modify coordinates according to the string edit path.
+
+    Parameters
+    ----------
+    coords: ArrayLike
+        An array of predicted coordinates of shape N x 2.
+    edits: List[Tuple[int, int, str]]
+        A sequence of edits from the ```edit_path``` function. The first two integers of
+        each tuple are the position in the source and target strings respectively and
+        the last string denotes the type of operation to perform ([sub]stitution,
+        [rem]oval, [ins]ertion).
+    gt_len: int
+        Length of the ground truth sequence.
+
+    Returns
+    -------
+    ArrayLike
+        Input coordinates modified to account for insertions and removals.
+    """
+    output = np.full((gt_len, 2), -1, dtype=int)
+
+    start_pred = 0
+    start_out = 0
+
+    for pd_ind, gt_ind, edit in edits:
+        if edit == "sub":
+            continue
+
+        segment = coords[start_pred:pd_ind]
+        output[start_out : start_out + len(segment)] = segment
+        start_out += len(segment)
+        start_pred = pd_ind
+
+        if edit == "rem":
+            start_pred += 1
+        if edit == "ins":
+            start_out += 1
+
+    segment = coords[start_pred : len(coords)]
+    output[start_out : start_out + len(segment)]
+    gaps = find_gaps(output)
+    output = remove_gaps(output, gaps)
+
+    return output
+
+
+def find_gaps(output: ArrayLike) -> List[Tuple[int, int]]:
+    """Find contiguous sets of invalid coordinates.
+
+    Parameters
+    ----------
+    output: ArrayLike
+        Coordinate prediction in N x 2 format.
+
+    Returns
+    -------
+    List[Tuple[int, int]]
+        A list of tuples representing the starting and ending indices of an invalid 
+        block.
+    """
+    invalid = np.all(output == -1, axis=1)
+    gaps = []
+
+    start = -1
+    last = False
+    for index, curr_inv in enumerate(invalid):
+        if curr_inv:
+            if not last:
+                start = index
+                last = True
+        else:
+            if last:
+                gaps.append((start, index))
+                last = False
+
+    if last:
+        gaps.append((start, len(invalid)))
+
+    return gaps
+
+
+def remove_gaps(output: ArrayLike, gaps: List[Tuple[int, int]]) -> ArrayLike:
+    """Replace invalid coordinates with plausible proposals.
+
+    Parameters
+    ----------
+    output: ArrayLike
+        Coordinate prediction in N x 2 format.
+    gaps: List[Tuple[int, int]]
+        A list of tuples representing the starting and ending indices of an invalid 
+        block.
+
+    Returns
+    -------
+    ArrayLike
+        The modified input coordinates.
+    """
+    invalid = np.all(output == -1, axis=1)
+    median_size = output[np.logical_not(invalid)]
+    median_size = median_size[:, 1] - median_size[:, 0]
+
+    if len(median_size):
+        median_size = np.median(median_size)
+    else:
+        median_size = 50
+
+    for gap in gaps:
+        start_index, end_index = gap
+        nblocks = end_index - start_index
+        start_coord = output[start_index - 1, 1] if start_index > 0 else 0
+        end_coord = (
+            output[end_index, 0]
+            if end_index < len(invalid)
+            else start_coord + ((end_index - start_index) * median_size)
+        )
+        block_size = (end_coord - start_coord) // nblocks
+        for block in range(nblocks):
+            output[start_index + block, 0] = start_coord + (block * block_size)
+            output[start_index + block, 1] = start_coord + ((block + 1) * block_size)
+
+    return output
 
 
 def moving_average(a, n=3):

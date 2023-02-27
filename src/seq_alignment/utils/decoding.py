@@ -12,7 +12,7 @@ from typing import List, Optional, NamedTuple, Tuple
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .ops import seqiou, sequiou_multiple, levenshtein
+from .ops import seqiou, sequiou_multiple, levenshtein, edit_path, edit_coords
 
 
 BLANK_CHARACTER: int = 0
@@ -171,10 +171,11 @@ class Prediction:
         pred_text: ArrayLike,
         gt_text: ArrayLike,
         coords: ArrayLike,
-        confs: ArrayLike,
     ) -> Prediction:
         dist, mat = levenshtein(pred_text, gt_text)
-        mat = np.array(mat)
+        edits = edit_path(mat)
+        coords = edit_coords(coords, edits)
+
         return cls()
 
     @classmethod
