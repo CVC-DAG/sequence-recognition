@@ -369,39 +369,51 @@ def levenshtein(source, target) -> Tuple[float, List]:
 
 
 def edit_path(matrix: ArrayLike) -> List[Tuple[int, int, str]]:
-    matrix = matrix[::-1, ::-1]
+    """Generate the edit sequence from a Levenshtein output matrix.
+
+    Parameters
+    ----------
+    matrix: ArrayLike
+        The output of a Levenshtein algorithm. Should be a matrix of shape N x M where
+        N is the number of characters in the predicted sequence and M is the number of
+        characters in the target sequence.
+
+    Returns
+    -------
+    List[Tuple[int, int, str]]
+        A list of edits. The first two integers of each tuple are the position in the
+        source and target strings respectively and the last string denotes the type of
+        operation to perform ([sub]stitution, [rem]oval, [ins]ertion)
+    """
     rows, cols = matrix.shape
 
-    ii = 0
-    jj = 0
+    ii = rows - 1
+    jj = cols - 1
 
     edits = []
 
-    while ii != rows - 1 and jj != cols - 1:
+    while ii > 0 or jj > 0:
         current_val = matrix[ii, jj]
 
-        south = matrix[ii + 1, jj] if ii < rows - 1 else math.inf
-        west = matrix[ii, jj + 1] if jj < cols - 1 else math.inf
-        diag = matrix[ii + 1, jj + 1] if ii < rows - 1 and jj < cols - 1 else math.inf
+        north = matrix[ii - 1, jj] if ii > 0 else math.inf
+        east = matrix[ii, jj - 1] if jj > 0 else math.inf
+        diag = matrix[ii - 1, jj - 1] if ii > 0 and jj > 0 else math.inf
 
-        if diag == current_val:
-            ii = ii + 1
-            jj = jj + 1
-        else:
-            minval = min(south, west, diag)
+        minval = min(north, east, diag)
 
-            if minval == diag:
+        if minval == diag:
+            ii = ii - 1
+            jj = jj - 1
+            if minval != current_val:
                 edits.append((ii, jj, "sub"))
-                ii = ii + 1
-                jj = jj + 1
-            elif minval == south:
-                edits.append((ii, jj, "rem"))
-                ii = ii + 1
-                jj = jj
-            elif minval == west:
-                edits.append((ii, jj, "rem"))
-                ii = ii
-                jj = jj + 1
+        elif minval == north:
+            ii = ii - 1
+            jj = jj
+            edits.append((ii, jj, "rem"))
+        elif minval == east:
+            ii = ii
+            jj = jj - 1
+            edits.append((ii, jj, "ins"))
     edits.reverse()
     return edits
 
