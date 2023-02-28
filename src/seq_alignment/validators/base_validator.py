@@ -99,6 +99,7 @@ class BaseValidator:
             model.eval()
 
             log_path = self.save_path / f"e{epoch}_valid"
+            log_path.mkdir(exist_ok=True)
 
             logger = self.logger_type(
                 log_path,
@@ -107,7 +108,6 @@ class BaseValidator:
                 True,
                 self.workers,
             )
-            log_path.mkdir(exist_ok=True)
 
             loss = 0.0
 
