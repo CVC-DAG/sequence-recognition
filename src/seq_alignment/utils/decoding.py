@@ -172,6 +172,22 @@ class Prediction:
         gt_text: ArrayLike,
         coords: ArrayLike,
     ) -> Prediction:
+        """Produce a prediction from the output of an OCR or detection system.
+
+        Parameters
+        ----------
+        pred_text: ArrayLike
+            The predicted sequence of tokens by the detector.
+        gt_text: ArrayLike
+            The ground truth text for the given image.
+        coords: ArrayLike
+            Predicted coordinates for the text tokens.
+
+        Returns
+        -------
+        Prediction
+            A Prediction object with due information.
+        """
         dist, mat = levenshtein(pred_text, gt_text)
         edits = edit_path(mat)
         coords = edit_coords(coords, edits, len(gt_text))
@@ -209,13 +225,17 @@ class PredictionGroup:
         names: Optional[List[str | None]] = None,
     ) -> None:
         """Create PredictionGroup object.
-
-        :param predictions: A list of Prediction objects of the same image line. They
-        must contain the same number of elements, as they are produced from the same
-        ground truth sequence as reference.
-        :param gt_sequence: The ground truth of the sequence being predicted.
-        :param names: A list of method names to keep track of results in an orderly
-        fashion.
+        
+        Parameters
+        ----------
+        predictions: List[Prediction]
+            A list of Prediction objects of the same image line. They must contain the
+            same number of elements, as they are produced from the same ground truth
+            sequence as reference.
+        gt_sequence: ArrayLike
+            The ground truth of the sequence being predicted.
+        names: Optional[List[str | None]] = None
+            A list of method names to keep track of results in an orderly fashion.
         """
         self._predictions = predictions
         self._gt_sequence = gt_sequence
@@ -311,11 +331,18 @@ class PrefixNode:
     ) -> None:
         """Construct a PrefixNode.
 
-        :param character: Character pertaining to the current node.
-        :param char_index: Index of the position of the character in the output string.
-        :param parent: Pointer to the parent node if it exists.
-        :param confidence: Cumulative log probability of the sequence after the
-        inclusion of this node.
+        Parameters
+        ----------
+        character: int
+            Character pertaining to the current node.
+        char_index: int
+            Index of the position of the character in the output string.
+        parent: Optional[PrefixNode]
+            Pointer to the parent node if it exists.
+        confidence: float
+            Cumulative log probability of the sequence after the inclusion of this node.
+        column: int
+            The column of the CTC matrix being processed.
         """
         self._character = character
         self._char_index = char_index

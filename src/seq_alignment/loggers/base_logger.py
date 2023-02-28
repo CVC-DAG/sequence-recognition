@@ -109,7 +109,7 @@ class SimpleLogger(BaseLogger):
         if self._log_results:
             self._result_paths = {
                 name: open(path / f"results_{name}.pkl", "ba")
-                for name in self._metric.keys()
+                for name in self._formatter.keys()
             }
 
     def _write_metrics(
@@ -154,10 +154,10 @@ class SimpleLogger(BaseLogger):
             A list of file names aligned to each final_res element.
         """
         write_dict = {
-            metric_name: {
-                img_name: out[metric_name] for img_name, out in zip(names, final_res)
+            result_name: {
+                img_name: out[result_name] for img_name, out in zip(names, final_res)
             }
-            for metric_name in self._formatter.keys()
+            for result_name in self._formatter.keys()
         }
         for k, v in write_dict.items():
             f_out = self._result_paths[k]

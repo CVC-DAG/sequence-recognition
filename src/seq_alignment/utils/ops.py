@@ -367,10 +367,10 @@ def levenshtein(
         return len(source)
 
     # We call tuple() to force strings to be used as sequences
-    if isinstance(source, str):
-        source = np.array(tuple(source))
-    if isinstance(source, str):
-        target = np.array(tuple(target))
+    # if isinstance(source, str):
+    source = np.array(tuple(source))
+    # if isinstance(source, str):
+    target = np.array(tuple(target))
 
     previous_row = np.arange(target.size + 1)
 
