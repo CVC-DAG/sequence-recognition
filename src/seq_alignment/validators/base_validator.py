@@ -98,7 +98,7 @@ class BaseValidator:
         with torch.no_grad():
             model.eval()
 
-            log_path = self.save_path / f"e{epoch}_valid"
+            log_path = self.save_path / f"e{epoch}_{self.mode}"
             log_path.mkdir(exist_ok=True)
 
             logger = self.logger_type(

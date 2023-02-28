@@ -61,7 +61,7 @@ class AlignmentEvaluator:
     def evaluate(self):
         if self._npreds > 1:
             for fn, pg in self._groups.items():
-                pg.find_anchors(0.75)
+                anchors = pg.find_anchors(0.75)
 
     def _create_fewshot_conversor(self, vocab: GenericDecryptVocab) -> Dict:
         tokens = vocab.vocab2index.keys()
@@ -172,7 +172,7 @@ class AlignmentEvaluator:
             data = data.split(" ")
             data = [self._fs_conv[x] for x in data]
             data = self._vocab.encode(data)
-            pred_text[fbbox.stem] = np.array(data)
+            pred_text[ftext.stem] = np.array(data)
 
         for fn in set(bboxes.keys()) & set(pred_text.keys()):
             text = pred_text[fn]

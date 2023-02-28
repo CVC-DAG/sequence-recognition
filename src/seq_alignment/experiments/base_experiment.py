@@ -171,7 +171,7 @@ class Experiment(ABC):
     def main(self) -> None:
         """Run the experiment."""
         if self.test_weights:
-            self.model.load_weights(self.test)
-            self.tester(self.model, 0, 0, self.trainer.device)
+            self.model.load_weights(self.test_weights)
+            self.tester.validate(self.model, 0, 0, self.trainer.device)
         else:
             self.trainer.train()
