@@ -14,7 +14,8 @@ PIPELINES = {
         T.GaussianBlur(3),
         T.RandomEqualize(),
         T.RandomPerspective(fill=255),
-    ]
+    ],
+    None: [],
 }
 
 

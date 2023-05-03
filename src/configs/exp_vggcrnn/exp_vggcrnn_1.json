@@ -16,9 +16,9 @@
         "vocab_data": "vocab.json"
     },
     "data": {
-        "target_shape": [1200, 64],
+        "target_shape": [400, 64],
         "target_seqlen": 18,
-        "aug_pipeline": "basic_decrypt",
+        "aug_pipeline": null,
         "hflip": false
     },
     "model": {
@@ -43,7 +43,7 @@
         "save_every": 1,
         "eval_every": 1,
         "weight_decay": 1e-3,
-        "workers": 8,
+        "workers": 0,
         "plateau_sched": true,
         "plateau_factor": 0.1,
         "plateau_iters": 10,
