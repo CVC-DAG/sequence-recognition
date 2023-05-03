@@ -1,5 +1,5 @@
 {
-    "exp_name": "exp_vgg_crnn_dag004",
+    "exp_name": "exp_vgg_crnn_dag005",
     "description": "Training a VGG CRNN for the recognition of Vatican Cipher words.",
     "cipher": "vatican",
     "wandb_mode": "online",
