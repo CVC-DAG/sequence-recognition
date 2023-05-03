@@ -19,7 +19,8 @@
         "target_shape": [640, 96],
         "target_seqlen": 18,
         "aug_pipeline": null,
-        "hflip": false
+        "hflip": false,
+        "stretch": 2.5
     },
     "model": {
         "model_name": "VggCRNN",
