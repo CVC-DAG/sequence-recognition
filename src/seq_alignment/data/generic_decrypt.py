@@ -172,6 +172,7 @@ class DataConfig(BaseModel):
     target_seqlen: int
     aug_pipeline: Optional[str]
     hflip: bool = False
+    stretch: Optional[float] = None
     # Be reminded that for bounding boxes to be arranged properly, the maximum
     # coordinate within the segm file should match the rightmost point in the image
     # (in other words, the max x). The way it is done now allows for the coordinate
@@ -221,6 +222,7 @@ class GenericDecryptDataset(D.Dataset):
         self._seqlen = config.target_seqlen
         self._target_shape = config.target_shape
         self._hflip = config.hflip
+        self._stretch = config.stretch
 
         aug_pipeline = PIPELINES[config.aug_pipeline] or [] if train else []
         self._aug_pipeline = T.Compose([*aug_pipeline, self.DEFAULT_TRANSFORMS])
@@ -275,8 +277,10 @@ class GenericDecryptDataset(D.Dataset):
         img_width, img_height = og_shape
         tgt_width, tgt_height = self._target_shape
 
-        factor = min(tgt_width / img_width, tgt_height / img_height)
-        new_shape = tuple(map(lambda x: int(x * factor), og_shape))
+        factor = min(tgt_width / ((self._stretch or 1.0) * img_width),
+                     tgt_height / img_height)
+        new_shape = (int(img_width * factor * (self._stretch or 1.0)),
+                     int(img_height * factor))
 
         img = img.resize(new_shape)
         if self._hflip:

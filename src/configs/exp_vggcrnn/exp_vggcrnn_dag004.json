@@ -31,7 +31,7 @@
         "lstm_hidden_size": 512,
         "blstm": true,
         "dropout": 0.4,
-        "output_classes": 80
+        "output_classes": 85
     },
     "train": {
         "batch_size": 12,

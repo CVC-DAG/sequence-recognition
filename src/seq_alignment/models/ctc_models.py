@@ -3,6 +3,8 @@
 import torch
 from torch import nn
 
+import numpy as np
+
 from .base_model import BaseModel as BaseInferenceModel, BaseModelConfig
 from .model_zoo import ModelZoo
 from .cnns import (
@@ -59,8 +61,11 @@ class CTCModel(BaseInferenceModel):
         """
         columns = output.shape[0]
         target_shape = batch.img[0].shape[-1]
+        batch_lens = batch.og_len.numpy()
         input_lengths = batch.curr_shape[0] * (columns / target_shape)
-        input_lengths = input_lengths.numpy().astype(int).tolist()
+        input_lengths = np.ceil(input_lengths.numpy()).astype(int)
+        input_lengths = np.where(input_lengths < batch_lens, batch_lens, input_lengths)
+        input_lengths = input_lengths.tolist()
 
         batch_loss = self.loss(
             output,

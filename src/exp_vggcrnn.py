@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import torch
+
 from seq_alignment.data.generic_decrypt import (
     GenericDecryptVocab,
     GenericDecryptDataset,
@@ -107,5 +109,6 @@ class VggCRNNExperiment(Experiment):
 
 
 if __name__ == "__main__":
+    torch.autograd.set_detect_anomaly(True)
     exp = VggCRNNExperiment()
     exp.main()

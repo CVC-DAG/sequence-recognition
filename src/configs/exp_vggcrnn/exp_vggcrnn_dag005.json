@@ -19,7 +19,8 @@
         "target_shape": [640, 96],
         "target_seqlen": 18,
         "aug_pipeline": null,
-        "hflip": false
+        "hflip": false,
+        "stretch": 2.5
     },
     "model": {
         "model_name": "VggCRNN",
@@ -31,7 +32,7 @@
         "lstm_hidden_size": 256,
         "blstm": true,
         "dropout": 0.4,
-        "output_classes": 80
+        "output_classes": 85
     },
     "train": {
         "batch_size": 12,

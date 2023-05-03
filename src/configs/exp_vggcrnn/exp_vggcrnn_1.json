@@ -16,10 +16,11 @@
         "vocab_data": "vocab.json"
     },
     "data": {
-        "target_shape": [400, 64],
+        "target_shape": [400, 96],
         "target_seqlen": 18,
         "aug_pipeline": null,
-        "hflip": false
+        "hflip": false,
+        "stretch": 2.5
     },
     "model": {
         "model_name": "VggCRNN",
@@ -31,10 +32,10 @@
         "lstm_hidden_size": 512,
         "blstm": true,
         "dropout": 0.4,
-        "output_classes": 80
+        "output_classes": 85
     },
     "train": {
-        "batch_size": 8,
+        "batch_size": 32,
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 1000,

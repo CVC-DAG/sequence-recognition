@@ -1,7 +1,7 @@
 """Experiment with Arnau Baró's CRNN model."""
+import torch
 
 from pathlib import Path
-
 from seq_alignment.data.generic_decrypt import (
     GenericDecryptVocab,
     GenericDecryptDataset,
@@ -109,5 +109,6 @@ class BaroExperiment(Experiment):
 
 
 if __name__ == "__main__":
+    torch.autograd.set_detect_anomaly(True)
     exp = BaroExperiment()
     exp.main()
