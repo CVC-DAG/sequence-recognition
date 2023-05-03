@@ -230,15 +230,18 @@ class GenericDecryptDataset(D.Dataset):
 
         for fn, sample in gt.items():
             transcript = self.RE_SEPARATOR.split(sample["ts"])
-            segm = np.array(sample["segm"], dtype=int)
-
-            if self._hflip:
-                segm = abs(segm[::-1] - segm.max())
-                segm = segm[:, [1, 0]]
-                transcript = transcript[::-1]
-
-            segmentation = np.full((self._seqlen, 2), -1)
-            segmentation[: len(segm)] = segm
+            if sample["segm"] is not None:
+                segm = np.array(sample["segm"], dtype=int)
+                if self._hflip:
+                    segm = abs(segm[::-1] - segm.max())
+                    segm = segm[:, [1, 0]]
+                    transcript = transcript[::-1]
+                segmentation = np.full((self._seqlen, 2), -1)
+                segmentation[: len(segm)] = segm
+            else:
+                if self._hflip:
+                    transcript = transcript[::-1]
+                segmentation = np.array([])
 
             og_len = len(transcript)
             transcript = vocab.prepare_data(transcript, self._seqlen)

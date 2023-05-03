@@ -40,6 +40,8 @@ VGGS_BN = {
     19: vgg19_bn,
 }
 
+VGG_EMBEDDING_SIZE = 512
+
 
 def create_resnet(
     resnet_type: int, headless: bool = True, pretrained: bool = True
@@ -74,6 +76,7 @@ def create_vgg(
     batchnorm: bool = True,
     headless: bool = True,
     pretrained: bool = True,
+    keep_maxpool: bool = True,
 ) -> nn.Module:
     """Generate a VGG from TorchVision given the VGG type as integer.
 
@@ -99,6 +102,9 @@ def create_vgg(
 
     if headless:
         vgg = nn.Sequential(*list(vgg.children())[:-2])
+
+        if not keep_maxpool:
+            vgg[0] = nn.Sequential(*list(vgg[0].children())[:-1])
 
     return vgg
 

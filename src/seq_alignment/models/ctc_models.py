@@ -5,7 +5,13 @@ from torch import nn
 
 from .base_model import BaseModel as BaseInferenceModel, BaseModelConfig
 from .model_zoo import ModelZoo
-from .cnns import create_resnet, BaroCNN, RESNET_EMBEDDING_SIZES
+from .cnns import (
+    create_resnet,
+    create_vgg,
+    BaroCNN,
+    RESNET_EMBEDDING_SIZES,
+    VGG_EMBEDDING_SIZE,
+)
 from ..data.generic_decrypt import DataConfig, BatchedSample
 
 
@@ -349,6 +355,104 @@ class ResnetCRNN(CTCModel):
         x = self.backbone(x)  # Batch, Channels, Height, Width // 16
         x = self.avg_pool(x)  # Batch, Channels, 1, Width // 16
         x = self.upsample(x)  # Batch, Channels, 1, Length
+        x = x.squeeze(2)  # Batch, Channels, Length
+        x = x.permute(2, 0, 1)  # Length, Batch, Hidden
+        x, _ = self.lstm(x)  # Length, Batch, Hidden * Directions
+
+        if self.directions > 1:
+            seq_len, batch_size, hidden_size = x.shape
+            x = x.view(
+                seq_len, batch_size, self.directions, hidden_size // self.directions
+            )
+            x = x.sum(axis=2)
+
+        x = self.output_layer(x)  # Length, Batch, Classes
+        x = self.log_softmax(x)
+
+        return x
+
+
+class VggCRNNConfig(BaseModelConfig):
+    """Configuration for the Baró CTC Model."""
+
+    vgg_type: int
+    vgg_batchnorm: bool
+    vgg_pretrained: bool
+    lstm_layers: int
+    lstm_hidden_size: int
+    blstm: bool
+    dropout: float
+    output_classes: int
+
+
+@ModelZoo.register_model
+class VggCRNN(CTCModel):
+    """CRNN Model with a ResNet as backcbone."""
+
+    MODEL_CONFIG = VggCRNNConfig
+
+    def __init__(self, model_config: ResnetCRNNConfig, data_config: DataConfig) -> None:
+        """Initialise Baró CRNN from parameters.
+
+        Parameters
+        ----------
+        config: ResnetCRNNConfig
+            Configuration object for the model.
+        data_config: DataConfig
+            Configuration for input data formatting.
+        """
+        super().__init__()
+
+        self.model_config = model_config
+        self.data_config = data_config
+
+        self.directions = 2 if self.model_config.blstm else 1
+        self.hidden_size = VGG_EMBEDDING_SIZE
+
+        self.backbone = create_vgg(
+            vgg_type=self.model_config.vgg_type,
+            batchnorm=self.model_config.vgg_batchnorm,
+            headless=True,
+            pretrained=self.model_config.vgg_pretrained,
+            keep_maxpool=False,
+        )
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, None))
+
+        self.lstm = nn.LSTM(
+            input_size=self.hidden_size,
+            hidden_size=self.model_config.lstm_hidden_size,
+            num_layers=self.model_config.lstm_layers,
+            bidirectional=self.model_config.blstm,
+            dropout=self.model_config.dropout,
+        )
+        self.output_layer = nn.Linear(
+            self.model_config.lstm_hidden_size, self.model_config.output_classes
+        )
+        self.log_softmax = nn.LogSoftmax(dim=-1)
+
+        if model_config.model_weights:
+            self.load_weights(model_config.model_weights)
+
+    def forward(self, x) -> torch.Tensor:
+        """Compute the transcription of the input batch images x.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
+        """
+        x = self.backbone(x)  # Batch, Channels, Height, Width // 16
+        x = self.avg_pool(x)  # Batch, Channels, 1, Width // 16
         x = x.squeeze(2)  # Batch, Channels, Length
         x = x.permute(2, 0, 1)  # Length, Batch, Hidden
         x, _ = self.lstm(x)  # Length, Batch, Hidden * Directions

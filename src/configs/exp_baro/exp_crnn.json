@@ -1,12 +1,12 @@
 {
-    "exp_name": "baro_borg_dag001",
-    "description": "Attempt at training a model on borg",
-    "cipher": "borg",
+    "exp_name": "celestial-haze-8-test",
+    "description": "Redoing test to get the other attributes.",
+    "cipher": "copiale",
     "wandb_mode": "online",
-    "wandb_project": "seq-alignment",
+    "wandb_project": "decrypt-align-crnn",
     "dirs": {
-        "results_dir": "/data2fast/users/ptorras/decrypt/results",
-        "base_data_dir": "/data2fast/users/ptorras/borg",
+        "results_dir": "/home/ptorras/Documents/Decrypt/celestial-haze-good",
+        "base_data_dir": "/home/ptorras/Documents/Datasets/decrypt_cleanup/copiale",
         "training_file": "gt_words_training.json",
         "training_root": "words",
         "validation_file": "gt_lines_validation.json",
@@ -31,7 +31,7 @@
         "output_classes": 130
     },
     "train": {
-        "batch_size": 4,
+        "batch_size": 64,
         "device": "cuda",
         "grad_clip": null,
         "max_epochs": 200,
