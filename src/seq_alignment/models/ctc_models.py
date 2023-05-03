@@ -57,7 +57,10 @@ class CTCModel(BaseInferenceModel):
         torch.float32
             The model's loss for the given input.
         """
-        input_lengths = list((batch.gt.numpy() == 3).argmax(axis=-1))
+        columns = output.shape[0]
+        target_shape = batch.img[0].shape[-1]
+        input_lengths = batch.curr_shape[0] * (columns / target_shape)
+        input_lengths = input_lengths.numpy().astype(int).tolist()
 
         batch_loss = self.loss(
             output,

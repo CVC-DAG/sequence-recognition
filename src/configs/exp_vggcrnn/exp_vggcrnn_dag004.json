@@ -16,7 +16,7 @@
         "vocab_data": "vocab.json"
     },
     "data": {
-        "target_shape": [400, 64],
+        "target_shape": [400, 96],
         "target_seqlen": 18,
         "aug_pipeline": null,
         "hflip": false
