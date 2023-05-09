@@ -107,12 +107,12 @@ class WordAccuracy(BaseMetric):
 
         for model_out, gt, ln in zip(output, batch.gt, batch.og_len):
             ln = ln.item()
-            gt_sample = gt[:ln]
+            gt_sample = gt[:ln].detach().cpu().numpy()
             pd_sample = model_out["text"]
             if len(gt_sample) != len(pd_sample):
                 out.append({self.METRIC_NAME: False})
             else:
-                out.append({self.METRIC_NAME: np.all(model_out["text"] == gt[:ln])})
+                out.append({self.METRIC_NAME: np.all(model_out["text"] == gt_sample)})
 
         return out
 

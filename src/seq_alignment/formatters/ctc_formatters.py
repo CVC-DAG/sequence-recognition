@@ -116,6 +116,7 @@ class GreedyTextDecoder(BaseFormatter):
             confs = []
             for ind, element in enumerate(sample):
                 if element == 0:
+                    previous = 0
                     continue
                 if element == previous:
                     continue

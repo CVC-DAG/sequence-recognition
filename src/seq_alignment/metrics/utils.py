@@ -40,7 +40,7 @@ class Compose(BaseMetric):
             )
 
     def __call__(
-        self, output: List[Dict[str, Any]], batch: BatchedSample
+        self, model_output: List[Dict[str, Any]], batch: BatchedSample
     ) -> Dict[str, ArrayLike]:
         """Compute multiple metrics between a set of predictions and the GT.
 
@@ -59,7 +59,7 @@ class Compose(BaseMetric):
         output = []
 
         for metric in self.metrics:
-            current = metric(output, batch)
+            current = metric(model_output, batch)
 
             if not len(output):
                 output = current
