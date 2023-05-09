@@ -70,10 +70,10 @@ class BaroExperiment(Experiment):
 
         # Metrics
         self.training_metric = text.Levenshtein(self.vocab)
-        self.valid_metric = utils.Compose(
+        self.valid_metric = utils.Compose([
             text.Levenshtein(self.vocab),
             text.WordAccuracy(),
-        )
+        ])
 
         # Model and training-related
         self.model = BaroCRNN(self.cfg.model, self.cfg.data)
