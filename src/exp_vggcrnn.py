@@ -14,7 +14,7 @@ from seq_alignment.experiments.configurations import DecryptDirectoryConfig
 from seq_alignment.formatters import ctc_formatters
 from seq_alignment.loggers.base_logger import SimpleLogger
 # from seq_alignment.loggers.async_logger import AsyncLogger
-from seq_alignment.metrics import text
+from seq_alignment.metrics import text, utils
 from seq_alignment.models.ctc_models import VggCRNN, VggCRNNConfig
 from seq_alignment.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
 from seq_alignment.validators.base_validator import BaseValidator
@@ -70,7 +70,10 @@ class VggCRNNExperiment(Experiment):
 
         # Metrics
         self.training_metric = text.Levenshtein(self.vocab)
-        self.valid_metric = text.Levenshtein(self.vocab)
+        self.valid_metric = utils.Compose(
+            text.Levenshtein(self.vocab),
+            text.WordAccuracy(),
+        )
 
         # Model and training-related
         self.model = VggCRNN(self.cfg.model, self.cfg.data)
