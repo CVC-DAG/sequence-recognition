@@ -111,8 +111,19 @@ class GreedyTextDecoder(BaseFormatter):
         output = []
 
         for sample, mat in zip(indices, model_output):
-            nonzero = sample != 0
-            text_ind = sample[nonzero]
-            text_cnf = mat[nonzero]
-            output.append({self.KEY_TEXT: text_ind, self.KEY_TEXT_CONF: text_cnf})
+            previous = 0
+            decoded = []
+            confs = []
+            for ind, element in enumerate(sample):
+                if element == 0:
+                    continue
+                if element == previous:
+                    continue
+                decoded.append(element)
+                previous = element
+                confs.append(mat[ind])
+
+            decoded = np.array(decoded)
+            confs = np.array(confs)
+            output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
         return output
