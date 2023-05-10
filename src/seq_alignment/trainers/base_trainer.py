@@ -163,6 +163,12 @@ class BaseTrainer:
                 lr=config.learning_rate,
                 weight_decay=config.weight_decay,
             )
+        elif config.optimizer == "sgd":
+            optimizer = optim.SGD(
+                model.parameters(),
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
         else:
             raise ValueError(
                 f"The prompted optimizer ({config.optimizer}) is "
