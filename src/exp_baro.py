@@ -2,20 +2,20 @@
 
 from pathlib import Path
 
-from seq_alignment.data.generic_decrypt import (
+from seq_recog.data.generic_decrypt import (
     GenericDecryptVocab,
     GenericDecryptDataset,
     DataConfig,
 )
-from seq_alignment.experiments.base_experiment import Experiment, ExperimentConfig
-from seq_alignment.experiments.configurations import DecryptDirectoryConfig
-from seq_alignment.formatters import ctc_formatters
-from seq_alignment.loggers.base_logger import SimpleLogger
-from seq_alignment.loggers.async_logger import AsyncLogger
-from seq_alignment.metrics import coords, text
-from seq_alignment.models.ctc_models import BaroCRNN, BaroCRNNConfig
-from seq_alignment.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
-from seq_alignment.validators.base_validator import BaseValidator
+from seq_recog.experiments.base_experiment import Experiment, ExperimentConfig
+from seq_recog.experiments.configurations import DecryptDirectoryConfig
+from seq_recog.formatters import ctc_formatters
+from seq_recog.loggers.base_logger import SimpleLogger
+from seq_recog.loggers.async_logger import AsyncLogger
+from seq_recog.metrics import coords, text
+from seq_recog.models.ctc_models import BaroCRNN, BaroCRNNConfig
+from seq_recog.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
+from seq_recog.validators.base_validator import BaseValidator
 
 
 class BaroExperimentConfig(ExperimentConfig):

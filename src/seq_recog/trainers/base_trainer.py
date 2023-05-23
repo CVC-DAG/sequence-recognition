@@ -5,13 +5,11 @@ import json
 from collections import deque
 from pathlib import Path
 from shutil import rmtree
-from typing import Any, Callable, Tuple, List, Dict, Optional, Type
+from typing import Callable, List, Dict, Optional, Type
 
-import numpy as np
 import torch
 from torch import nn
 from torch import optim
-from torch import TensorType
 from torch.optim import lr_scheduler as sched
 from torch.utils import data as D
 
@@ -19,7 +17,6 @@ from torchinfo import summary
 
 from pydantic import BaseModel
 
-from ..data.generic_decrypt import BatchedSample, GenericDecryptDataset
 from ..formatters.base_formatter import BaseFormatter
 from ..loggers.base_logger import BaseLogger
 from ..loggers.async_logger import AsyncLogger

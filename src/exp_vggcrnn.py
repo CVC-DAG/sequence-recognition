@@ -4,27 +4,28 @@ from pathlib import Path
 
 import torch
 
-from seq_alignment.data.generic_decrypt import (
-    GenericDecryptVocab,
-    GenericDecryptDataset,
-    DataConfig,
+from seq_recog.data.base_dataset import (
+    BaseVocab,
+    BaseDataset,
+    BaseDataConfig,
 )
-from seq_alignment.experiments.base_experiment import Experiment, ExperimentConfig
-from seq_alignment.experiments.configurations import DecryptDirectoryConfig
-from seq_alignment.formatters import ctc_formatters
-from seq_alignment.loggers.base_logger import SimpleLogger
-# from seq_alignment.loggers.async_logger import AsyncLogger
-from seq_alignment.metrics import text, utils
-from seq_alignment.models.ctc_models import VggCRNN, VggCRNNConfig
-from seq_alignment.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
-from seq_alignment.validators.base_validator import BaseValidator
+from seq_recog.experiments.base_experiment import Experiment, ExperimentConfig
+from seq_recog.experiments.configurations import DecryptDirectoryConfig
+from seq_recog.formatters import ctc_formatters
+from seq_recog.loggers.base_logger import SimpleLogger
+
+# from seq_recog.loggers.async_logger import AsyncLogger
+from seq_recog.metrics import text, utils
+from seq_recog.models.ctc_models import VggCRNN, VggCRNNConfig
+from seq_recog.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
+from seq_recog.validators.base_validator import BaseValidator
 
 
 class BaroExperimentConfig(ExperimentConfig):
     """Global experiment settings."""
 
     dirs: DecryptDirectoryConfig
-    data: DataConfig
+    data: BaseDataConfig
     model: VggCRNNConfig
     train: BaseTrainerConfig
 
@@ -41,22 +42,22 @@ class VggCRNNExperiment(Experiment):
     def initialise_everything(self) -> None:
         """Initialise all member variables for the class."""
         # Data
-        self.vocab = GenericDecryptVocab(self.cfg.dirs.vocab_data)
-        self.train_data = GenericDecryptDataset(
+        self.vocab = BaseVocab(self.cfg.dirs.vocab_data)
+        self.train_data = BaseDataset(
             self.cfg.dirs.training_root,
             self.cfg.dirs.training_file,
             self.vocab,
             self.cfg.data,
             True,
         )
-        self.valid_data = GenericDecryptDataset(
+        self.valid_data = BaseDataset(
             self.cfg.dirs.validation_root,
             self.cfg.dirs.validation_file,
             self.vocab,
             self.cfg.data,
             False,
         )
-        self.test_data = GenericDecryptDataset(
+        self.test_data = BaseDataset(
             self.cfg.dirs.test_root,
             self.cfg.dirs.test_file,
             self.vocab,
@@ -70,10 +71,12 @@ class VggCRNNExperiment(Experiment):
 
         # Metrics
         self.training_metric = text.Levenshtein(self.vocab)
-        self.valid_metric = utils.Compose([
-            text.Levenshtein(self.vocab),
-            text.WordAccuracy(),
-        ])
+        self.valid_metric = utils.Compose(
+            [
+                text.Levenshtein(self.vocab),
+                text.WordAccuracy(),
+            ]
+        )
 
         # Model and training-related
         self.model = VggCRNN(self.cfg.model, self.cfg.data)
@@ -85,7 +88,7 @@ class VggCRNNExperiment(Experiment):
             self.cfg.train.batch_size,
             0 if self.debug else self.cfg.train.workers,
             "valid",
-            SimpleLogger
+            SimpleLogger,
         )
         self.tester = BaseValidator(
             self.test_data,
@@ -95,7 +98,7 @@ class VggCRNNExperiment(Experiment):
             self.cfg.train.batch_size,
             0 if self.debug else self.cfg.train.workers,
             "test",
-            SimpleLogger
+            SimpleLogger,
         )
 
         self.trainer = BaseTrainer(

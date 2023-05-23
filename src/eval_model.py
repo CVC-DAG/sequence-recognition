@@ -1,7 +1,6 @@
 """Generate display images for a prediction and evaluate results."""
 
 import json
-import pickle
 import re
 
 from argparse import ArgumentParser, Namespace
@@ -9,13 +8,11 @@ from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
-from numpy.typing import ArrayLike
-from seq_alignment.data.generic_decrypt import (
-    GenericDecryptDataset,
-    GenericDecryptVocab,
+from seq_recog.data.base_dataset import (
+    BaseVocab,
 )
-from seq_alignment.utils.decoding import Prediction, PredictionGroup
-from seq_alignment.utils.io import load_pickle_prediction
+from seq_recog.utils.decoding import Prediction, PredictionGroup
+from seq_recog.utils.io import load_pickle_prediction
 
 
 RE_NUMBER = re.compile(r"(\-?[0-9]+),(\-?[0-9]+)")
@@ -27,7 +24,7 @@ class AlignmentEvaluator:
 
     def __init__(self, args: Namespace) -> None:
         self._groups = {}
-        self._vocab = GenericDecryptVocab(args.vocab)
+        self._vocab = BaseVocab(args.vocab)
         self._groundtruth = self._load_gt(args.groundtruth)
         self._fs_conv = self._create_fewshot_conversor(self._vocab)
 
@@ -63,7 +60,7 @@ class AlignmentEvaluator:
             for fn, pg in self._groups.items():
                 anchors = pg.find_anchors(0.75)
 
-    def _create_fewshot_conversor(self, vocab: GenericDecryptVocab) -> Dict:
+    def _create_fewshot_conversor(self, vocab: BaseVocab) -> Dict:
         tokens = vocab.vocab2index.keys()
         fewshot = {tok: self._remove_filesystem_chars(tok) for tok in tokens}
         fewshot = {v: k for k, v in fewshot.items()}

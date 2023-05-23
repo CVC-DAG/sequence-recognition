@@ -14,7 +14,7 @@ from .cnns import (
     RESNET_EMBEDDING_SIZES,
     VGG_EMBEDDING_SIZE,
 )
-from ..data.generic_decrypt import DataConfig, BatchedSample
+from ..data.base_dataset import BaseDataConfig, BatchedSample
 
 
 class CTCModel(BaseInferenceModel):
@@ -61,7 +61,7 @@ class CTCModel(BaseInferenceModel):
         """
         columns = output.shape[0]
         target_shape = batch.img[0].shape[-1]
-        batch_lens = batch.og_len.numpy()
+        batch_lens = batch.gt_len.numpy()
         input_lengths = batch.curr_shape[0] * (columns / target_shape)
         input_lengths = np.ceil(input_lengths.numpy()).astype(int)
         input_lengths = np.where(input_lengths < batch_lens, batch_lens, input_lengths)
@@ -71,7 +71,7 @@ class CTCModel(BaseInferenceModel):
             output,
             batch.gt.to(device),
             input_lengths,
-            tuple(batch.og_len.tolist()),
+            tuple(batch.gt_len.tolist()),
         )
         return batch_loss
 
@@ -94,7 +94,7 @@ class FullyConvCTC(CTCModel):
     MODEL_CONFIG = FullyConvCTCConfig
 
     def __init__(
-        self, model_config: FullyConvCTCConfig, data_config: DataConfig
+        self, model_config: FullyConvCTCConfig, data_config: BaseDataConfig
     ) -> None:
         """Initialise FullyConv model from parameters.
 
@@ -102,7 +102,7 @@ class FullyConvCTC(CTCModel):
         ----------
         config: FullyConvCTCConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -210,14 +210,16 @@ class BaroCRNN(CTCModel):
 
     MODEL_CONFIG = BaroCRNNConfig
 
-    def __init__(self, model_config: BaroCRNNConfig, data_config: DataConfig) -> None:
+    def __init__(
+        self, model_config: BaroCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
         config: BaroCRNNConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -298,14 +300,16 @@ class ResnetCRNN(CTCModel):
 
     MODEL_CONFIG = ResnetCRNNConfig
 
-    def __init__(self, model_config: ResnetCRNNConfig, data_config: DataConfig) -> None:
+    def __init__(
+        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
         config: ResnetCRNNConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -396,14 +400,16 @@ class VggCRNN(CTCModel):
 
     MODEL_CONFIG = VggCRNNConfig
 
-    def __init__(self, model_config: ResnetCRNNConfig, data_config: DataConfig) -> None:
+    def __init__(
+        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
         config: ResnetCRNNConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()

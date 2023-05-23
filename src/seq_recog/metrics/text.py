@@ -41,7 +41,7 @@ class Levenshtein(BaseMetric):
         """
         out = []
 
-        for model_out, gt, ln in zip(output, batch.gt, batch.og_len):
+        for model_out, gt, ln in zip(output, batch.gt, batch.gt_len):
             ln = ln.item()
             lev = levenshtein(model_out["text"], gt[:ln])[0]
             out.append({"levenshtein": lev})
@@ -105,7 +105,7 @@ class WordAccuracy(BaseMetric):
         """
         out = []
 
-        for model_out, gt, ln in zip(output, batch.gt, batch.og_len):
+        for model_out, gt, ln in zip(output, batch.gt, batch.gt_len):
             ln = ln.item()
             gt_sample = gt[:ln].detach().cpu().numpy()
             pd_sample = model_out["text"]

@@ -4,9 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
 import torch
-from torch import nn
 
-from ..data.generic_decrypt import BatchedSample
+from ..data.base_dataset import BatchedSample
 
 
 class BaseFormatter(ABC):

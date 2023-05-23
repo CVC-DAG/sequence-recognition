@@ -5,10 +5,9 @@ from typing import Any, Dict, List
 import numpy as np
 from numpy.typing import ArrayLike
 import torch
-from torch import nn
 
 from .base_formatter import BaseFormatter
-from ..data.generic_decrypt import BatchedSample, GenericDecryptVocab
+from ..data.base_dataset import BatchedSample, BaseVocab
 from ..utils.decoding import PrefixTree, Prediction
 
 
@@ -19,7 +18,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
     KEY_COORD1D_CONF = "coords1d_confidences"
     KEYS = [KEY_COORD1D, KEY_COORD1D_CONF]
 
-    def __init__(self, beam_width: int, vocab: GenericDecryptVocab) -> None:
+    def __init__(self, beam_width: int, vocab: BaseVocab) -> None:
         """Construct OptimalCoordinateDecoding object.
 
         Parameters

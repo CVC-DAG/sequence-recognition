@@ -7,7 +7,7 @@ from pydantic import BaseModel as ConfigBaseModel
 import torch
 from torch import nn
 
-from ..data.generic_decrypt import BatchedSample
+from ..data.base_dataset import BatchedSample
 
 
 class BaseModelConfig(ConfigBaseModel):
