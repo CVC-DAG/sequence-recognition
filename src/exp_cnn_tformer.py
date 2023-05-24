@@ -1,38 +1,36 @@
-"""Experiment with Arnau Baró's CRNN model."""
+"""Experiment with a CTC CNN Transformer model."""
 
 from pathlib import Path
 
 from seq_recog.data.base_dataset import (
     BaseVocab,
-    BaseDataset,
     BaseDataConfig,
 )
+from seq_recog.data.comref_dataset import load_comref_splits
 from seq_recog.experiments.base_experiment import Experiment, ExperimentConfig
-from seq_recog.experiments.configurations import DecryptDirectoryConfig
+from seq_recog.experiments.configurations import ComrefDirectoryConfig
 from seq_recog.formatters import ctc_formatters
 from seq_recog.loggers.base_logger import SimpleLogger
 from seq_recog.loggers.async_logger import AsyncLogger
-from seq_recog.metrics import coords, text
-from seq_recog.models.ctc_models import BaroCRNN, BaroCRNNConfig
+from seq_recog.metrics import text
+from seq_recog.models.ctc_models import CTCCNNTransformer, CTCCNNTransformerConfig
 from seq_recog.trainers.base_trainer import BaseTrainer, BaseTrainerConfig
 from seq_recog.validators.base_validator import BaseValidator
 
 
-class BaroExperimentConfig(ExperimentConfig):
+class CNNTformerExperimentConfig(ExperimentConfig):
     """Global experiment settings."""
 
-    beam_width: int
-
-    dirs: DecryptDirectoryConfig
+    dirs: ComrefDirectoryConfig
     data: BaseDataConfig
-    model: BaroCRNNConfig
+    model: CTCCNNTransformerConfig
     train: BaseTrainerConfig
 
 
-class BaroExperiment(Experiment):
+class CNNTformerExperiment(Experiment):
     """Object modelling the Experiment with Arnau Baró's CRNN model."""
 
-    EXPERIMENT_CONFIG = BaroExperimentConfig
+    EXPERIMENT_CONFIG = CNNTformerExperimentConfig
 
     def __init__(self):
         """Initialise object."""
@@ -42,40 +40,22 @@ class BaroExperiment(Experiment):
         """Initialise all member variables for the class."""
         # Data
         self.vocab = BaseVocab(self.cfg.dirs.vocab_data)
-        self.train_data = BaseDataset(
-            self.cfg.dirs.training_root,
-            self.cfg.dirs.training_file,
+        self.train_data, self.valid_data, self.test_data = load_comref_splits(
+            Path(self.cfg.dirs.splits_file),
             self.vocab,
             self.cfg.data,
-            True,
-        )
-        self.valid_data = BaseDataset(
-            self.cfg.dirs.validation_root,
-            self.cfg.dirs.validation_file,
-            self.vocab,
-            self.cfg.data,
-            False,
-        )
-        self.test_data = BaseDataset(
-            self.cfg.dirs.test_root,
-            self.cfg.dirs.test_file,
-            self.vocab,
-            self.cfg.data,
-            False,
         )
 
         # Formatters
         self.training_formatter = ctc_formatters.GreedyTextDecoder()
-        self.valid_formatter = ctc_formatters.OptimalCoordinateDecoder(
-            self.cfg.beam_width, self.vocab
-        )
+        self.valid_formatter = ctc_formatters.GreedyTextDecoder()
 
         # Metrics
         self.training_metric = text.Levenshtein(self.vocab)
-        self.valid_metric = coords.SeqIoU()
+        self.valid_metric = text.Levenshtein(self.vocab)
 
         # Model and training-related
-        self.model = BaroCRNN(self.cfg.model, self.cfg.data)
+        self.model = CTCCNNTransformer(self.cfg.model, self.cfg.data)
         self.validator = BaseValidator(
             self.valid_data,
             self.valid_formatter,
@@ -111,5 +91,5 @@ class BaroExperiment(Experiment):
 
 
 if __name__ == "__main__":
-    exp = BaroExperiment()
+    exp = CNNTformerExperiment()
     exp.main()

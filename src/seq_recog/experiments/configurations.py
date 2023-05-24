@@ -25,3 +25,10 @@ class DecryptDirectoryConfig(DirectoryConfig):
     test_root: str
 
     vocab_data: str
+
+
+class ComrefDirectoryConfig(DirectoryConfig):
+    """Directories for COMREF databases."""
+
+    splits_file: str
+    vocab_data: str

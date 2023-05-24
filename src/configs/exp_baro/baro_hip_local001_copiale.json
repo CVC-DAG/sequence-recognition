@@ -2,7 +2,7 @@
     "exp_name": "baro_hip_local001_copiale",
     "description": "Training a Baró CRNN for the recognition of copiale Cipher words.",
     "cipher": "copiale",
-    "wandb_mode": "online",
+    "wandb_mode": "disabled",
     "wandb_project": "HIP",
     "dirs": {
         "results_dir": "/home/ptorras/Documents/Decrypt/hip",
@@ -22,7 +22,7 @@
     },
     "model": {
         "model_name": "baro_crnn",
-        "model_weights": "/home/ptorras/Documents/Decrypt/hip/baro_hip_local001_copiale/ruby-deluge-54/weights_BEST.pth",
+        "model_weights": null,
         "lstm_hidden_size": 128,
         "lstm_layers": 4,
         "blstm": true,

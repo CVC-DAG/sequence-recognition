@@ -184,7 +184,7 @@ class AsyncProcessor:
         result_q: mp.Queue
             Queue to write formatted results.
         """
-        fnames = [x.split("/")[-1] for x in batch.filename]
+        fnames = [x.split("/")[-1] for x in batch.fname]
         results = self._formatter(output, batch)
 
         if self._log_results:

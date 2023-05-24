@@ -184,10 +184,8 @@ class BaroCNN(nn.Module):
         Returns
         -------
         torch.Tensor
-            A W' x N x C matrix containing the log likelihood of every class at
-            every time step where W' is the width of the output sequence,
-            N is the batch size and C is the number of output classes. This
-            matrix may be used in a CTC loss.
+            A N x D x W / 2 tensor containing the features of the input image compressed
+            into a sequence of features.
         """
         out = self.conv1(x)
         out = self.swish1(out)
@@ -215,3 +213,109 @@ class BaroCNN(nn.Module):
         out = out.squeeze(2)  # Remove height dimension
 
         return out  # Batch x Features x Width
+
+
+class LightweightCNN(nn.Module):
+    """A lightweight CNN designed for CRNN setups.
+
+    Implemented from [1].
+
+    [1] A. Ríos-Vila, J. M. Iñesta, and J. Calvo-Zaragoza, “On the Use of Transformers
+    for End-to-End Optical Music Recognition,” in Pattern Recognition and Image
+    Analysis, A. J. Pinho, P. Georgieva, L. F. Teixeira, and J. A. Sánchez, Eds., in
+    Lecture Notes in Computer Science. Cham: Springer International Publishing, 2022,
+    pp. 470-481. doi: 10.1007/978-3-031-04881-4_37.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Block 1
+        self.conv1 = nn.Conv2d(
+            in_channels=3,
+            out_channels=32,
+            kernel_size=5,
+            stride=1,
+            padding="same",
+        )
+        self.batchnorm1 = nn.BatchNorm2d(32)
+        self.swish1 = nn.LeakyReLU(0.2)
+        self.maxpool1 = nn.MaxPool2d(kernel_size=(2, 2))
+
+        # Block 2
+        self.conv2 = nn.Conv2d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding="same",
+        )
+        self.batchnorm2 = nn.BatchNorm2d(64)
+        self.swish2 = nn.LeakyReLU(0.2)
+        self.maxpool2 = nn.MaxPool2d(kernel_size=(2, 1))
+
+        # Block 3
+        self.conv3 = nn.Conv2d(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding="same",
+        )
+        self.batchnorm3 = nn.BatchNorm2d(64)
+        self.swish3 = nn.LeakyReLU(0.2)
+        self.maxpool3 = nn.MaxPool2d(kernel_size=(2, 1))
+
+        # Block 4
+        self.conv4 = nn.Conv2d(
+            in_channels=64,
+            out_channels=128,
+            kernel_size=3,
+            stride=1,
+            padding="same",
+        )
+        self.batchnorm4 = nn.BatchNorm2d(128)
+        self.swish4 = nn.LeakyReLU(0.2)
+        self.maxpool4 = nn.MaxPool2d(kernel_size=(2, 1))
+
+    def forward(self, x):
+        """Perform inference.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A N x (W / 2) x (H * 8) tensor containing the features of the input image
+            compressed into a sequence of features.
+        """
+        batch, _, height, width = x.shape
+
+        out = self.conv1(x)
+        out = self.swish1(out)
+        out = self.batchnorm1(out)
+        out = self.maxpool1(out)  # N x 32 x (H / 2) x (W / 2)
+
+        out = self.conv2(out)
+        out = self.swish2(out)
+        out = self.batchnorm2(out)
+        out = self.maxpool2(out)  # N x 64 x (H / 4) x (W / 2)
+
+        out = self.conv3(out)
+        out = self.swish3(out)
+        out = self.batchnorm3(out)
+        out = self.maxpool3(out)  # N x 64 x (H / 8) x (W / 2)
+
+        out = self.conv4(out)
+        out = self.swish4(out)
+        out = self.batchnorm4(out)
+        out = self.maxpool4(out)  # N x 128 x (H / 16) x (W / 2)
+
+        out = out.reshape((batch, 128 * height // 16, width // 2))  # N x (H'D) X W
+        out = out.permute((0, 2, 1))  # N x W / 2 x F
+
+        return out

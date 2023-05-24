@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 from pathlib import Path
 from shutil import copyfile
-from typing import Dict, Tuple, Type
+from typing import Dict, Optional, Tuple, Type
 from pydantic import BaseModel
 
 import wandb
@@ -21,7 +21,7 @@ class ExperimentConfig(BaseModel):
 
     exp_name: str
     description: str
-    cipher: str
+    cipher: Optional[str] = None
     wandb_mode: str
     wandb_project: str
 
