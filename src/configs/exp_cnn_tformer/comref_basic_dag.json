@@ -10,7 +10,7 @@
         "vocab_data": "vocab.json"
     },
     "data": {
-        "target_shape": [400, 128],
+        "target_shape": [800, 256],
         "target_seqlen": 200,
         "aug_pipeline": null,
         "stretch": "fit",
