@@ -1,5 +1,5 @@
 {
-    "exp_name": "comref_basic_dag",
+    "exp_name": "comref_basic_dag_small",
     "description": "Testing the architecture locally.",
     "wandb_mode": "online",
     "wandb_project": "comref",
