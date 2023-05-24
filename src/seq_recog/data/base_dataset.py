@@ -209,6 +209,7 @@ class BaseDataConfig(BaseModel):
     aug_pipeline: Optional[str]
     stretch: Optional[Union[float, str]] = None  # Can be "fit" to fit the entire size
     hflip: bool = False
+    max_length: Optional[int] = None  # Allow only shorter or equal
 
 
 class BaseDataset(D.Dataset):
@@ -258,6 +259,7 @@ class BaseDataset(D.Dataset):
         self._target_shape = config.target_shape
         self._hflip = config.hflip
         self._stretch = config.stretch
+        self._max_length = config.max_length
         self._vocab = vocab
         self._special = special
 
@@ -286,6 +288,8 @@ class BaseDataset(D.Dataset):
                 segmentation = np.array([])
 
             gt_len = len(transcript)
+            if self._max_length and gt_len > self._max_length:
+                continue
             transcript = self._vocab.prepare_data(
                 transcript, self._seqlen, self._special
             )

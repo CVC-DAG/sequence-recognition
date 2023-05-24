@@ -77,6 +77,10 @@ class ComrefDataset(BaseDataset):
             transcript = self.RE_SEPARATOR.split(transcript)
 
             gt_len = len(transcript)
+
+            if self._max_length and gt_len > self._max_length:
+                continue
+
             transcript = self._vocab.prepare_data(
                 transcript, self._seqlen, self._special
             )
