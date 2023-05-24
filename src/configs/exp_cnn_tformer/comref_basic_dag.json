@@ -1,7 +1,7 @@
 {
     "exp_name": "comref_basic_dag",
     "description": "Testing the architecture locally.",
-    "wandb_mode": "disabled",
+    "wandb_mode": "online",
     "wandb_project": "comref",
     "dirs": {
         "results_dir": "/data2fast/users/ptorras/comref_results",
