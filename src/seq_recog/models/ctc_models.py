@@ -584,6 +584,8 @@ class CTCCNNTransformer(CTCModel):
         x = self.output(x)  # N x W x C
         x = x.permute((1, 0, 2))  # W x N x C
 
+        x = self.logsoftmax(x)
+
         return x
 
 
