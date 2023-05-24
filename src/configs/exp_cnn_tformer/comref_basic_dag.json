@@ -4,8 +4,8 @@
     "wandb_mode": "disabled",
     "wandb_project": "comref",
     "dirs": {
-        "results_dir": "/home/ptorras/Documents/comref_experiments",
-        "base_data_dir": "/home/ptorras/Documents/Datasets/COMREF/CleanupSamples",
+        "results_dir": "/data2fast/users/ptorras/comref_results",
+        "base_data_dir": "/data2fast/users/ptorras/COMREF/CleanupSamples",
         "splits_file": "splits.json",
         "vocab_data": "vocab.json"
     },
