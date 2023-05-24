@@ -21,6 +21,7 @@ def load_comref_splits(
     splits_file: Path,
     vocab: BaseVocab,
     config: BaseDataConfig,
+    special: bool,
 ) -> ComrefDataset:
     with open(splits_file, "r") as f_in:
         splits = json.load(f_in)
@@ -41,6 +42,7 @@ def load_comref_splits(
                     vocab,
                     config,
                     split == "train",
+                    special,
                 )
             )
         full_dataset.append(D.ConcatDataset(datasets))
@@ -62,8 +64,9 @@ class ComrefDataset(BaseDataset):
         vocab: BaseVocab,
         config: BaseDataConfig,
         train: bool = True,
+        special: bool = False,
     ) -> None:
-        super().__init__(image_folder, dataset_file, vocab, config, train)
+        super().__init__(image_folder, dataset_file, vocab, config, train, special)
 
     def _load_data(self) -> None:
         with open(self._dataset_file, "r") as f_gt:
@@ -74,7 +77,9 @@ class ComrefDataset(BaseDataset):
             transcript = self.RE_SEPARATOR.split(transcript)
 
             gt_len = len(transcript)
-            transcript = self._vocab.prepare_data(transcript, self._seqlen)
+            transcript = self._vocab.prepare_data(
+                transcript, self._seqlen, self._special
+            )
 
             self._samples.append(
                 DatasetSample(

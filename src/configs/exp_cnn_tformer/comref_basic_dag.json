@@ -13,7 +13,7 @@
         "target_shape": [400, 128],
         "target_seqlen": 200,
         "aug_pipeline": null,
-        "stretch": null,
+        "stretch": "fit",
         "hflip": false
     },
     "model": {

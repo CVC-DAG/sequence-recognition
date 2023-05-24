@@ -44,6 +44,7 @@ class CNNTformerExperiment(Experiment):
             Path(self.cfg.dirs.splits_file),
             self.vocab,
             self.cfg.data,
+            False,
         )
 
         # Formatters

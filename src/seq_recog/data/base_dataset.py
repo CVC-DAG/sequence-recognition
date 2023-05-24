@@ -170,7 +170,12 @@ class BaseVocab:
             output.append(x)
         return output
 
-    def prepare_data(self, data_in: List[str], pad_len: int) -> ArrayLike:
+    def prepare_data(
+        self,
+        data_in: List[str],
+        pad_len: int,
+        special: bool = False,
+    ) -> ArrayLike:
         """Perform encoding, padding and conversion to array.
 
         Parameters
@@ -179,13 +184,15 @@ class BaseVocab:
             Input sequence in token format.
         pad_len : int
             Length to which to pad the input sequence.
+        special: bool
+            Whether to insert special start / stop tokens. False by default.
 
         Returns
         -------
         ArrayLike
             The input sequence with padding in array form.
         """
-        data = self.pad(self.encode(data_in), pad_len)
+        data = self.pad(self.encode(data_in), pad_len, special)
 
         return data
 
@@ -200,7 +207,7 @@ class BaseDataConfig(BaseModel):
     target_shape: Tuple[Width, Height]
     target_seqlen: int
     aug_pipeline: Optional[str]
-    stretch: Optional[float] = None
+    stretch: Optional[Union[float, str]] = None  # Can be "fit" to fit the entire size
     hflip: bool = False
 
 
@@ -222,6 +229,7 @@ class BaseDataset(D.Dataset):
         vocab: BaseVocab,
         config: BaseDataConfig,
         train: bool = True,
+        special: bool = False,
     ) -> None:
         """Initialise Dataset object.
 
@@ -238,6 +246,8 @@ class BaseDataset(D.Dataset):
         train: bool
             Whether this dataset is used for training purposes (in which case data
             augmentation is enabled).
+        special: bool
+            Whether to use special tokens in padding. False by default.
         """
         super(BaseDataset).__init__()
 
@@ -249,6 +259,7 @@ class BaseDataset(D.Dataset):
         self._hflip = config.hflip
         self._stretch = config.stretch
         self._vocab = vocab
+        self._special = special
 
         aug_pipeline = PIPELINES[config.aug_pipeline] or [] if train else []
         self._aug_pipeline = T.Compose([*aug_pipeline, self.DEFAULT_TRANSFORMS])
@@ -275,7 +286,9 @@ class BaseDataset(D.Dataset):
                 segmentation = np.array([])
 
             gt_len = len(transcript)
-            transcript = self._vocab.prepare_data(transcript, self._seqlen)
+            transcript = self._vocab.prepare_data(
+                transcript, self._seqlen, self._special
+            )
 
             self._samples.append(
                 DatasetSample(
@@ -312,13 +325,19 @@ class BaseDataset(D.Dataset):
         img_width, img_height = og_shape
         tgt_width, tgt_height = self._target_shape
 
-        factor = min(
-            tgt_width / ((self._stretch or 1.0) * img_width), tgt_height / img_height
-        )
-        new_shape = (
-            int(img_width * factor * (self._stretch or 1.0)),
-            int(img_height * factor),
-        )
+        if isinstance(self._stretch, float) or self._stretch is None:
+            factor = min(
+                tgt_width / ((self._stretch or 1.0) * img_width),
+                tgt_height / img_height,
+            )
+            new_shape = (
+                int(img_width * factor * (self._stretch or 1.0)),
+                int(img_height * factor),
+            )
+        elif isinstance(self._stretch, str) and self._stretch == "fit":
+            new_shape = (int(tgt_width), int(tgt_height))
+        else:
+            raise Exception(f"Wrong parameter for stretching: {self._stretch}.")
 
         img = img.resize(new_shape)
         if self._hflip:

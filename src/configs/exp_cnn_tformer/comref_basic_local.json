@@ -1,7 +1,7 @@
 {
     "exp_name": "comref_basic_local",
     "description": "Testing the architecture locally.",
-    "wandb_mode": "disabled",
+    "wandb_mode": "online",
     "wandb_project": "comref",
     "dirs": {
         "results_dir": "/home/ptorras/Documents/comref_experiments",
@@ -13,7 +13,7 @@
         "target_shape": [400, 128],
         "target_seqlen": 200,
         "aug_pipeline": null,
-        "stretch": null,
+        "stretch": "fit",
         "hflip": false
     },
     "model": {
