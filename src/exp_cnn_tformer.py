@@ -65,7 +65,7 @@ class CNNTformerExperiment(Experiment):
             self.cfg.train.batch_size,
             0 if self.debug else self.cfg.train.workers,
             "valid",
-            SimpleLogger if self.debug else AsyncLogger,
+            SimpleLogger,
         )
         self.tester = BaseValidator(
             self.test_data,
@@ -75,7 +75,7 @@ class CNNTformerExperiment(Experiment):
             self.cfg.train.batch_size,
             0 if self.debug else self.cfg.train.workers,
             "test",
-            SimpleLogger if self.debug else AsyncLogger,
+            SimpleLogger,
         )
 
         self.trainer = BaseTrainer(
@@ -87,7 +87,7 @@ class CNNTformerExperiment(Experiment):
             self.training_formatter,
             self.training_metric,
             None,
-            SimpleLogger if self.debug else AsyncLogger,
+            SimpleLogger,
         )
 
 

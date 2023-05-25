@@ -207,7 +207,7 @@ class BaseDataConfig(BaseModel):
     target_shape: Tuple[Width, Height]
     target_seqlen: int
     aug_pipeline: Optional[str]
-    stretch: Optional[Union[float, str]] = None  # Can be "fit" to fit the entire size
+    stretch: Optional[Union[float, str]] = None  # Can be "fit" to fit to full size
     hflip: bool = False
     max_length: Optional[int] = None  # Allow only shorter or equal
 

@@ -628,6 +628,11 @@ class CTCVITModel(CTCModel):
         self.model_config = model_config
         self.data_config = data_config
 
+        vit = ViT()
+        self.backbone = Extractor(vit)
+        self.output = nn.Linear()
+        self.log_softmax = nn.LogSoftmax(-1)
+
     def forward(self, x) -> torch.Tensor:
         """Compute the transcription of the input batch images x.
 
