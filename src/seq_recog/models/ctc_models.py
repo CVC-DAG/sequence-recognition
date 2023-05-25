@@ -592,7 +592,15 @@ class CTCCNNTransformer(CTCModel):
 class CTCVITModelConfig(BaseModelConfig):
     """Configuration for the CTC CNN Transformer model."""
 
-    ...
+    patch_size: int
+    vocab_size: int
+    model_dim: int
+    enc_layers: int
+    enc_heads: int
+    mlp_dim: int
+    dropout: float
+    emb_dropout: float
+    out_classes: int
 
 
 @ModelZoo.register_model
@@ -628,9 +636,22 @@ class CTCVITModel(CTCModel):
         self.model_config = model_config
         self.data_config = data_config
 
-        vit = ViT()
+        vit = ViT(
+            image_size=(self.data_config.image_size[1], self.data_config.image_size[0]),
+            patch_size=self.model_config.patch_size,
+            num_classes=self.model_config.vocab_size,
+            dim=self.model_config.model_dim,
+            depth=self.model_config.enc_layers,
+            heads=self.model_config.enc_heads,
+            mlp_dim=self.model_config.mlp_dim,
+            dropout=self.model_config.dropout,
+            emb_dropout=self.model_config.emb_dropout,
+        )
         self.backbone = Extractor(vit)
-        self.output = nn.Linear()
+        self.output = nn.Linear(
+            self.model_config.model_dim,
+            self.model_config.out_classes,
+        )
         self.log_softmax = nn.LogSoftmax(-1)
 
     def forward(self, x) -> torch.Tensor:
@@ -651,4 +672,8 @@ class CTCVITModel(CTCModel):
             N is the batch size and C is the number of output classes. This
             matrix may be used in a CTC loss.
         """
-        ...
+        _, x = self.backbone(x)  # N x (ntoks + 1) x F
+        x = self.output(x)
+        x = self.log_softmax(x)
+
+        return x
