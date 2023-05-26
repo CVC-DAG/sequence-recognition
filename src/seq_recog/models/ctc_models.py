@@ -593,7 +593,6 @@ class CTCVITModelConfig(BaseModelConfig):
     """Configuration for the CTC CNN Transformer model."""
 
     patch_size: int
-    vocab_size: int
     model_dim: int
     enc_layers: int
     enc_heads: int
@@ -637,9 +636,12 @@ class CTCVITModel(CTCModel):
         self.data_config = data_config
 
         vit = ViT(
-            image_size=(self.data_config.image_size[1], self.data_config.image_size[0]),
+            image_size=(
+                self.data_config.target_shape[1],
+                self.data_config.target_shape[0],
+            ),
             patch_size=self.model_config.patch_size,
-            num_classes=self.model_config.vocab_size,
+            num_classes=self.model_config.out_classes,
             dim=self.model_config.model_dim,
             depth=self.model_config.enc_layers,
             heads=self.model_config.enc_heads,
@@ -674,6 +676,7 @@ class CTCVITModel(CTCModel):
         """
         _, x = self.backbone(x)  # N x (ntoks + 1) x F
         x = self.output(x)
+        x = x.permute((1, 0, 2))
         x = self.log_softmax(x)
 
         return x

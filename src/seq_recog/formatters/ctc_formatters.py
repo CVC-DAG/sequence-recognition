@@ -82,9 +82,10 @@ class GreedyTextDecoder(BaseFormatter):
     KEY_TEXT_CONF = "text_confidences"
     KEYS = [KEY_TEXT, KEY_TEXT_CONF]
 
-    def __init__(self) -> None:
+    def __init__(self, confidences: bool = False) -> None:
         """Construct GreedyTextDecoder object."""
         super().__init__()
+        self._confidences = confidences
 
     def __call__(
         self, model_output: torch.Tensor, batch: BatchedSample
@@ -125,5 +126,8 @@ class GreedyTextDecoder(BaseFormatter):
 
             decoded = np.array(decoded)
             confs = np.array(confs)
-            output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
+            if self._confidences:
+                output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
+            else:
+                output.append({self.KEY_TEXT: decoded})
         return output
