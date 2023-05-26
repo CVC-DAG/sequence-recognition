@@ -4,10 +4,9 @@ from typing import Any, Dict, List
 from warnings import warn
 
 import torch
-from torch import nn
 
 from .base_formatter import BaseFormatter
-from ..data.generic_decrypt import BatchedSample
+from ..data.base_dataset import BatchedSample
 
 
 class Compose(BaseFormatter):
@@ -60,6 +59,13 @@ class Compose(BaseFormatter):
         return output
 
     def keys(self) -> List[str]:
+        """Get the set of keys this formatter can produce in the output dictionary.
+
+        Returns
+        -------
+        List[str]
+            List of keys that can be used by this formatter.
+        """
         return self._keys
 
 

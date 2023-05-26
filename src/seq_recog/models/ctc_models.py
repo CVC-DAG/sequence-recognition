@@ -4,17 +4,21 @@ import torch
 from torch import nn
 
 import numpy as np
+from vit_pytorch import ViT
+from vit_pytorch.extractor import Extractor
 
 from .base_model import BaseModel as BaseInferenceModel, BaseModelConfig
+from .misc import PositionalEncoding
 from .model_zoo import ModelZoo
 from .cnns import (
     create_resnet,
     create_vgg,
     BaroCNN,
+    LightweightCNN,
     RESNET_EMBEDDING_SIZES,
     VGG_EMBEDDING_SIZE,
 )
-from ..data.generic_decrypt import DataConfig, BatchedSample
+from ..data.base_dataset import BaseDataConfig, BatchedSample
 
 
 class CTCModel(BaseInferenceModel):
@@ -61,7 +65,7 @@ class CTCModel(BaseInferenceModel):
         """
         columns = output.shape[0]
         target_shape = batch.img[0].shape[-1]
-        batch_lens = batch.og_len.numpy()
+        batch_lens = batch.gt_len.numpy()
         input_lengths = batch.curr_shape[0] * (columns / target_shape)
         input_lengths = np.ceil(input_lengths.numpy()).astype(int)
         input_lengths = np.where(input_lengths < batch_lens, batch_lens, input_lengths)
@@ -71,7 +75,7 @@ class CTCModel(BaseInferenceModel):
             output,
             batch.gt.to(device),
             input_lengths,
-            tuple(batch.og_len.tolist()),
+            tuple(batch.gt_len.tolist()),
         )
         return batch_loss
 
@@ -94,7 +98,7 @@ class FullyConvCTC(CTCModel):
     MODEL_CONFIG = FullyConvCTCConfig
 
     def __init__(
-        self, model_config: FullyConvCTCConfig, data_config: DataConfig
+        self, model_config: FullyConvCTCConfig, data_config: BaseDataConfig
     ) -> None:
         """Initialise FullyConv model from parameters.
 
@@ -102,7 +106,7 @@ class FullyConvCTC(CTCModel):
         ----------
         config: FullyConvCTCConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -210,14 +214,16 @@ class BaroCRNN(CTCModel):
 
     MODEL_CONFIG = BaroCRNNConfig
 
-    def __init__(self, model_config: BaroCRNNConfig, data_config: DataConfig) -> None:
+    def __init__(
+        self, model_config: BaroCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
         config: BaroCRNNConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -298,14 +304,16 @@ class ResnetCRNN(CTCModel):
 
     MODEL_CONFIG = ResnetCRNNConfig
 
-    def __init__(self, model_config: ResnetCRNNConfig, data_config: DataConfig) -> None:
+    def __init__(
+        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
         config: ResnetCRNNConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -396,14 +404,16 @@ class VggCRNN(CTCModel):
 
     MODEL_CONFIG = VggCRNNConfig
 
-    def __init__(self, model_config: ResnetCRNNConfig, data_config: DataConfig) -> None:
+    def __init__(
+        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
         config: ResnetCRNNConfig
             Configuration object for the model.
-        data_config: DataConfig
+        data_config: BaseDataConfig
             Configuration for input data formatting.
         """
         super().__init__()
@@ -470,6 +480,203 @@ class VggCRNN(CTCModel):
             x = x.sum(axis=2)
 
         x = self.output_layer(x)  # Length, Batch, Classes
+        x = self.log_softmax(x)
+
+        return x
+
+
+class CTCCNNTransformerConfig(BaseModelConfig):
+    """Configuration for the CTC CNN Transformer model."""
+
+    nheads: int
+    d_encoder: int
+    d_ffw: int
+    encoder_layers: int
+    dropout: float
+    activation: str
+    output_classes: int
+
+
+@ModelZoo.register_model
+class CTCCNNTransformer(CTCModel):
+    """CTC model with a transformer encoder and a CNN as feature extractor.
+
+    CTC model that uses a CNN as a feature extractor and processes it through a
+    transformer encoder. This architecture is implemented by analogy to the contents of
+    paper [1].
+
+    [1] A. Ríos-Vila, J. M. Iñesta, and J. Calvo-Zaragoza, “On the Use of Transformers
+    for End-to-End Optical Music Recognition,” in Pattern Recognition and Image
+    Analysis, A. J. Pinho, P. Georgieva, L. F. Teixeira, and J. A. Sánchez, Eds., in
+    Lecture Notes in Computer Science. Cham: Springer International Publishing, 2022,
+    pp. 470-481. doi: 10.1007/978-3-031-04881-4_37.
+
+    """
+
+    MODEL_CONFIG = CTCCNNTransformerConfig
+
+    def __init__(
+        self, model_config: CTCCNNTransformerConfig, data_config: BaseDataConfig
+    ) -> None:
+        """Initialise CTC CNN Transformer from parameters.
+
+        Parameters
+        ----------
+        config: CTCCNNTransformerConfig
+            Configuration object for the model.
+        data_config: BaseDataConfig
+            Configuration for input data formatting.
+        """
+        super().__init__()
+
+        self.model_config = model_config
+        self.data_config = data_config
+
+        self.backbone = LightweightCNN()
+        self.mapping = nn.Linear(
+            data_config.target_shape[1] * 8,
+            self.model_config.d_encoder,
+        )
+        self.positional_encoding = PositionalEncoding(
+            emb_size=self.model_config.d_encoder,
+            dropout=model_config.dropout,
+        )
+        self.encoder_layer = nn.TransformerEncoderLayer(
+            d_model=self.model_config.d_encoder,
+            nhead=self.model_config.nheads,
+            dim_feedforward=self.model_config.d_ffw,
+            dropout=self.model_config.dropout,
+            activation=self.model_config.activation,
+        )
+        self.encoder = nn.TransformerEncoder(
+            self.encoder_layer,
+            self.model_config.encoder_layers,
+        )
+        self.output = nn.Linear(
+            self.model_config.d_encoder,
+            self.model_config.output_classes,
+        )
+        self.logsoftmax = nn.LogSoftmax(dim=-1)
+
+    def forward(self, x) -> torch.Tensor:
+        """Compute the transcription of the input batch images x.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
+        """
+        batch_size, _, height, width = x.shape
+        x = self.backbone(x)
+        x = self.mapping(x)  # N x W x F
+        x = self.positional_encoding(x)
+        x = self.encoder(x)
+        x = self.output(x)  # N x W x C
+        x = x.permute((1, 0, 2))  # W x N x C
+
+        x = self.logsoftmax(x)
+
+        return x
+
+
+class CTCVITModelConfig(BaseModelConfig):
+    """Configuration for the CTC CNN Transformer model."""
+
+    patch_size: int
+    model_dim: int
+    enc_layers: int
+    enc_heads: int
+    mlp_dim: int
+    dropout: float
+    emb_dropout: float
+    out_classes: int
+
+
+@ModelZoo.register_model
+class CTCVITModel(CTCModel):
+    """CTC model with a ViT as a feature extractor and encoder.
+
+    Model implemented using the design in [1].
+
+    [1] A. Ríos-Vila, J. M. Iñesta, and J. Calvo-Zaragoza, “On the Use of Transformers
+    for End-to-End Optical Music Recognition,” in Pattern Recognition and Image
+    Analysis, A. J. Pinho, P. Georgieva, L. F. Teixeira, and J. A. Sánchez, Eds., in
+    Lecture Notes in Computer Science. Cham: Springer International Publishing, 2022,
+    pp. 470-481. doi: 10.1007/978-3-031-04881-4_37.
+
+    """
+
+    MODEL_CONFIG = CTCVITModelConfig
+
+    def __init__(
+        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+    ) -> None:
+        """Initialise Baró CRNN from parameters.
+
+        Parameters
+        ----------
+        config: CTCVITModelConfig
+            Configuration object for the model.
+        data_config: BaseDataConfig
+            Configuration for input data formatting.
+        """
+        super().__init__()
+
+        self.model_config = model_config
+        self.data_config = data_config
+
+        vit = ViT(
+            image_size=(
+                self.data_config.target_shape[1],
+                self.data_config.target_shape[0],
+            ),
+            patch_size=self.model_config.patch_size,
+            num_classes=self.model_config.out_classes,
+            dim=self.model_config.model_dim,
+            depth=self.model_config.enc_layers,
+            heads=self.model_config.enc_heads,
+            mlp_dim=self.model_config.mlp_dim,
+            dropout=self.model_config.dropout,
+            emb_dropout=self.model_config.emb_dropout,
+        )
+        self.backbone = Extractor(vit)
+        self.output = nn.Linear(
+            self.model_config.model_dim,
+            self.model_config.out_classes,
+        )
+        self.log_softmax = nn.LogSoftmax(-1)
+
+    def forward(self, x) -> torch.Tensor:
+        """Compute the transcription of the input batch images x.
+
+        Parameters
+        ----------
+        x: torch.Tensor
+            Batch of input tensor images of shape N x 3 x H x W where N is the
+            Batch size, 3 is the number of channels and H, W are the height and
+            width of the input.
+
+        Returns
+        -------
+        torch.Tensor
+            A W' x N x C matrix containing the log likelihood of every class at
+            every time step where W' is the width of the output sequence,
+            N is the batch size and C is the number of output classes. This
+            matrix may be used in a CTC loss.
+        """
+        _, x = self.backbone(x)  # N x (ntoks + 1) x F
+        x = self.output(x)
+        x = x.permute((1, 0, 2))
         x = self.log_softmax(x)
 
         return x

@@ -5,10 +5,9 @@ from typing import Any, Dict, List
 import numpy as np
 from numpy.typing import ArrayLike
 import torch
-from torch import nn
 
 from .base_formatter import BaseFormatter
-from ..data.generic_decrypt import BatchedSample, GenericDecryptVocab
+from ..data.base_dataset import BatchedSample, BaseVocab
 from ..utils.decoding import PrefixTree, Prediction
 
 
@@ -19,7 +18,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
     KEY_COORD1D_CONF = "coords1d_confidences"
     KEYS = [KEY_COORD1D, KEY_COORD1D_CONF]
 
-    def __init__(self, beam_width: int, vocab: GenericDecryptVocab) -> None:
+    def __init__(self, beam_width: int, vocab: BaseVocab) -> None:
         """Construct OptimalCoordinateDecoding object.
 
         Parameters
@@ -83,9 +82,10 @@ class GreedyTextDecoder(BaseFormatter):
     KEY_TEXT_CONF = "text_confidences"
     KEYS = [KEY_TEXT, KEY_TEXT_CONF]
 
-    def __init__(self) -> None:
+    def __init__(self, confidences: bool = False) -> None:
         """Construct GreedyTextDecoder object."""
         super().__init__()
+        self._confidences = confidences
 
     def __call__(
         self, model_output: torch.Tensor, batch: BatchedSample
@@ -126,5 +126,8 @@ class GreedyTextDecoder(BaseFormatter):
 
             decoded = np.array(decoded)
             confs = np.array(confs)
-            output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
+            if self._confidences:
+                output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
+            else:
+                output.append({self.KEY_TEXT: decoded})
         return output

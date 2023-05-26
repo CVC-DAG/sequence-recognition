@@ -2,16 +2,16 @@
 
 import json
 from abc import ABC, abstractmethod
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 from pathlib import Path
 from shutil import copyfile
-from typing import Any, Dict, List, Tuple, Type
+from typing import Dict, Optional, Tuple, Type
 from pydantic import BaseModel
 
 import wandb
 
 from .configurations import DirectoryConfig
-from ..data.generic_decrypt import DataConfig
+from ..data.base_dataset import BaseDataConfig
 from ..models.base_model import BaseModelConfig
 from ..trainers.base_trainer import BaseTrainerConfig
 
@@ -21,12 +21,12 @@ class ExperimentConfig(BaseModel):
 
     exp_name: str
     description: str
-    cipher: str
+    cipher: Optional[str] = None
     wandb_mode: str
     wandb_project: str
 
     dirs: DirectoryConfig
-    data: DataConfig
+    data: BaseDataConfig
     model: BaseModelConfig
     train: BaseTrainerConfig
 

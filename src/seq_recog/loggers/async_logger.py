@@ -5,10 +5,10 @@ import pickle
 from pathlib import Path
 from typing import Any, Dict, List
 
-from seq_alignment.data.generic_decrypt import BatchedSample
-from seq_alignment.metrics.base_metric import BaseMetric
-from seq_alignment.formatters.base_formatter import BaseFormatter
-from seq_alignment.loggers.base_logger import BaseLogger
+from seq_recog.data.base_dataset import BatchedSample
+from seq_recog.metrics.base_metric import BaseMetric
+from seq_recog.formatters.base_formatter import BaseFormatter
+from seq_recog.loggers.base_logger import BaseLogger
 
 
 class AsyncLogger(BaseLogger):
@@ -184,7 +184,7 @@ class AsyncProcessor:
         result_q: mp.Queue
             Queue to write formatted results.
         """
-        fnames = [x.split("/")[-1] for x in batch.filename]
+        fnames = [x.split("/")[-1] for x in batch.fname]
         results = self._formatter(output, batch)
 
         if self._log_results:

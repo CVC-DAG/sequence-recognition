@@ -7,10 +7,10 @@ from typing import Any, Dict, List
 
 from numpy.typing import ArrayLike
 
-from seq_alignment.data.generic_decrypt import BatchedSample
-from seq_alignment.metrics.base_metric import BaseMetric
-from seq_alignment.formatters.base_formatter import BaseFormatter
-from seq_alignment.utils.io import load_pickle_prediction
+from seq_recog.data.base_dataset import BatchedSample
+from seq_recog.metrics.base_metric import BaseMetric
+from seq_recog.formatters.base_formatter import BaseFormatter
+from seq_recog.utils.io import load_pickle_prediction
 
 
 class BaseLogger(ABC):
@@ -181,7 +181,7 @@ class SimpleLogger(BaseLogger):
         results = self._formatter(output, batch)
         metrics = self._metric(results, batch)
 
-        fnames = [x.split("/")[-1] for x in batch.filename]
+        fnames = [x.split("/")[-1] for x in batch.fname]
 
         self._write_metrics(metrics, fnames)
         if self._log_results:
