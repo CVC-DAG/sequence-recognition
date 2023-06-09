@@ -18,7 +18,7 @@ ImgShape = Tuple[Height, Width]
 
 
 class ViTTransformer(nn.Module):
-    """Implements a ViT feature extractor using vit_pytorch."""
+    """Implements a full seq2seq transformer using vit_pytorch."""
 
     ACTIVATIONS = {
         "relu": F.relu,

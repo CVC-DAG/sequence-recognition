@@ -7,7 +7,7 @@ from pydantic import BaseModel as ConfigBaseModel
 import torch
 from torch import nn
 
-from ..data.base_dataset import BatchedSample
+from ..data.base_dataset import BatchedSample, BaseDataConfig
 
 
 class BaseModelConfig(ConfigBaseModel):
@@ -26,7 +26,9 @@ class BaseModel(nn.Module):
 
     MODEL_CONFIG = BaseModelConfig
 
-    def __init__(self) -> None:
+    def __init__(
+        self, model_config: BaseModelConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Model."""
         super().__init__()
 

@@ -50,6 +50,11 @@ class BaseVocab:
     stop_tok = "<STOP>"
     pad_tok = "<PAD>"
 
+    BLANK_INDEX = 0
+    GO_INDEX = 1
+    STOP_INDEX = 2
+    PAD_INDEX = 3
+
     def __init__(self, path: str) -> None:
         """Initialise the vocab object with the file pointed at the input path.
 
