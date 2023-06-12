@@ -1,9 +1,10 @@
 """RNN-based encoder modules."""
 
 import numpy as np
+from typing import Optional, Tuple
 
 from torch import nn
-from torch import Tensor
+from torch import TensorType
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from .cnns import create_vgg, VGG_EMBEDDING_SIZE
 
@@ -48,32 +49,53 @@ class VggRNNEncoder(nn.Module):
             dropout=self.dropout,
             bidirectional=True,
         )
-        if self.sum_directions:
-            self.enc_out_merge = (
-                lambda x: x[:, :, : x.shape[-1] // 2] + x[:, :, x.shape[-1] // 2 :]
-            )
-            self.enc_hidden_merge = lambda x: (x[0] + x[1]).unsqueeze(0)
 
     @staticmethod
-    def _sum_directions(x: Tensor) -> Tensor:
+    def _sum_directions(x: TensorType) -> TensorType:
         seqlen, batch, _ = x.shape
         x = x.view(seqlen, batch, 2, -1)
         return x.sum(dim=-2)
 
-    def forward(self, in_data, in_data_len, hidden=None):
-        batch_size = in_data.shape[0]
-        out = self.layer(in_data)
+    def forward(
+        self,
+        src: TensorType,
+        src_len: TensorType,
+        hidden: Optional[TensorType] = None,
+    ) -> Tuple[TensorType, TensorType]:
+        """Extract features from a batch of images and pass them through an RNN.
+
+        Parameters
+        ----------
+        src : TensorType
+            A batch of images of shape N x C x H x W, where N is the batch size, C is
+            the number of channels, H is the height and W is the width of the images.
+            Number of channels is assumed to be 3.
+        src_len : TensorType
+            Length in intermediate columns of the input image. This is used to account
+            for padding.
+        hidden : Optional[TensorType]
+            An initial hidden state that may be provided to condition the encoding of
+            the input images. Can either be a S x N x H Tensor, where S is the sequence
+            length, N is the batch size and H is the hidden dimension size, or None, in
+            which case a full-zero initial context is used. By default None.
+
+        Returns
+        -------
+        Tuple[TensorType, TensorType]
+            The final
+        """
+        batch_size = src.shape[0]
+        out = self.layer(src)
+
         # (batch, channels, height, width)
         out = self.backbone_dropout(out)
         out = out.permute(3, 0, 2, 1)
         # (width, batch, height, channels)
+
         out = out.contiguous()
         out = out.view(-1, batch_size, self.height // 16 * 512)
         # (width, batch, channels * height)
 
-        width = out.shape[0]
-        src_len = (in_data_len.numpy() * (width / self.width)).astype("int")
-        src_len = np.maximum(1, src_len)
         out = pack_padded_sequence(
             out,
             src_len.tolist(),

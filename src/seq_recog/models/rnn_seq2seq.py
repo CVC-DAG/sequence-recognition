@@ -1,15 +1,23 @@
 """RNN-based Encoder-Decoder models."""
 
+import random
 from typing import List, Optional
 
+import numpy as np
 import torch
 from torch import nn
 from torch import TensorType
+from torch.autograd import Variable
+from torch.nn.functional import one_hot
 
 from .losses.focal_loss import SequenceFocalLoss
 from .base_model import BaseModel
 from .base_model import BaseModelConfig
 from ..data.base_dataset import BatchedSample, BaseDataConfig, BaseVocab
+
+import rnn_encoders as rnne
+import rnn_decoders as rnnd
+import rnn_attention as rnna
 
 
 class RNNSeq2SeqConfig(BaseModelConfig):
@@ -51,7 +59,7 @@ class RNNSeq2Seq(BaseModel):
 
         Parameters
         ----------
-        batch_in: BatchedSample
+        batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
         device: torch.device
             Device where the training is happening in order to move tensors.
@@ -61,7 +69,12 @@ class RNNSeq2Seq(BaseModel):
         output: torch.Tensor
             The output of the model for the input batch.
         """
-        raise NotImplementedError
+        images = batch.img.to(device)
+        transcript = batch.gt.to(device)
+        lengths = batch.curr_shape[:, 0].to(device)
+
+        output, _ = self.forward(images, transcript, lengths)
+        return output
 
     def compute_loss(
         self, batch: BatchedSample, output: torch.Tensor, device: torch.device
@@ -70,7 +83,7 @@ class RNNSeq2Seq(BaseModel):
 
         Parameters
         ----------
-        batch_in: BatchedSample
+        batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
         output: torch.Tensor
             The output of the model for the input batch.
@@ -82,13 +95,135 @@ class RNNSeq2Seq(BaseModel):
         torch.float32
             The model's loss for the given input.
         """
-        raise NotImplementedError
+        output = output.view(-1, output.shape[-1])
+        transcript = batch.gt.to(device).view(-1)
 
-    @staticmethod
-    def _get_tgt_mask(seqlen: int) -> TensorType:
-        mask = torch.ones(seqlen - 1, seqlen - 1)
-        mask = (torch.triu(mask) == 1).transpose(0, 1).float()
-        mask = mask.masked_fill(mask == 0, float("-inf"))
-        mask = mask.masked_fill(mask == 1, float(0.0))
+        return self.loss(output, transcript)
 
-        return mask
+
+class KangSeq2SeqConfig(RNNSeq2SeqConfig):
+    """Configuration of Lei Kang-inspired RNN Sequence to Sequence model."""
+
+    vgg_type: int
+    vgg_bn: bool
+    vgg_pretrain: bool
+    encoder_layers: int
+    hidden_size: int
+    attn_filters: int
+    attn_kernsize: int
+    attn_smoothing: bool = False
+    embedding_size: int
+    output_units: int
+    teacher_rate: float
+    dropout: float
+    tradeoff_context_embedding: Optional[float] = None
+    multinomial: bool = False
+
+
+class KangSeq2Seq(RNNSeq2Seq):
+    """Lei Kang [1]-inspired Sequence to Sequence model.
+
+    [1] L. Kang, J. I. Toledo, P. Riba, M. Villegas, A. Fornés, and M. Rusiñol,
+    "Convolve, Attend and Spell: An Attention-based Sequence-to-Sequence Model for
+    Handwritten Word Recognition," in Pattern Recognition, T. Brox, A. Bruhn, and
+    M. Fritz, Eds., in Lecture Notes in Computer Science. Cham: Springer International
+    Publishing, 2019, pp. 459-472. doi: 10.1007/978-3-030-12939-2_32.
+    """
+
+    def __init__(
+        self,
+        model_config: RNNSeq2SeqConfig,
+        data_config: BaseDataConfig,
+    ) -> None:
+        super().__init__(model_config, data_config)
+
+        self.encoder = rnne.VggRNNEncoder(
+            vgg_type=model_config.vgg_type,
+            vgg_bn=model_config.vgg_bn,
+            vgg_pretrain=model_config.vgg_pretrain,
+            hidden_size=model_config.hidden_size,
+            layers=model_config.encoder_layers,
+            height=data_config.target_shape[1],
+            width=data_config.target_shape[0],
+            dropout=model_config.dropout,
+        )
+        self.attention = rnna.LocationAttention(
+            hidden_size=model_config.hidden_size,
+            nfilters=model_config.attn_filters,
+            kernel_size=model_config.attn_kernsize,
+            attention_smoothing=model_config.attn_smoothing,
+        )
+        self.decoder = rnnd.RNNDecoder(
+            hidden_size=model_config.hidden_size,
+            embedding_size=model_config.embedding_size,
+            vocab_size=model_config.output_units,
+            attention=self.attention,
+            dropout=model_config.dropout,
+            tradeoff_context_embed=model_config.tradeoff_context_embedding,
+            multinomial=model_config.multinomial,
+        )
+        self.encoder_proj = nn.Linear(
+            model_config.hidden_size,
+            model_config.hidden_size,
+        )
+        self.img_width, self.img_height = data_config.target_shape
+        self.output_max_len = data_config.max_length
+        self.vocab_size = model_config.output_units
+        self.teacher_rate = model_config.teacher_rate
+
+    # src: Variable
+    # tar: Variable
+    def forward(
+        self,
+        src: TensorType,
+        tar: TensorType,
+        src_len: TensorType,
+    ):
+        batch_size, _, _, _ = src.shape
+        tar = tar.permute(1, 0)
+        # (seqlen, batch)
+
+        src_len = np.ceil(src_len.numpy() / 16).astype("int")
+        src_len = np.maximum(1, src_len)
+
+        out_enc, hidden_enc = self.encoder(src, src_len)
+        # Output: (seqlen, batch, hidden)
+        # Hidden: (nlayers, batch, hidden)
+        attn_proj = self.encoder_proj(out_enc)
+        # (seqlen, batch, hidden)
+
+        attn_weights = Variable(
+            torch.zeros(batch_size, self.img_width // 16),
+            requires_grad=True,
+        ).cuda()
+        # (batch, seqlen)
+
+        outputs = Variable(
+            torch.zeros(self.output_max_len - 1, batch_size, self.vocab_size),
+            requires_grad=True,
+        )
+        output = Variable(one_hot(tar[0].data))
+        attns = []
+        outputs = outputs.cuda()
+        hidden = hidden_enc
+
+        for t in range(0, self.output_max_len - 1):  # max_len: groundtruth + <END>
+            teacher_force_rate = random.random() < self.teacher_rate
+            output, hidden, attn_weights = self.decoder(
+                output,
+                hidden,
+                out_enc,
+                attn_proj,
+                src_len,
+                attn_weights,
+            )
+            outputs[t] = output
+
+            output = Variable(
+                one_hot(tar[t + 1].data)
+                if self.train and teacher_force_rate
+                else output.data
+            )
+            attns.append(attn_weights.data.detach().cpu())
+
+        return outputs, attns

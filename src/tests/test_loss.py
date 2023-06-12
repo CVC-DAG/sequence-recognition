@@ -43,7 +43,15 @@ print(probs)
 #%%
 
 scores = torch.where(mask_correct, probs, 1 - probs)
+print(scores)
+
+#%%
+
 loss = -((1 - scores) ** gamma) * scores.log()
+print(loss)
+
+#%%
+
 
 if weights is not None:
     scores = scores * weights[None, :].expand(scores.size(0), -1)
