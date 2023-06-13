@@ -53,7 +53,9 @@ class RNNSeq2Seq(BaseModel):
             )
         else:
             self.loss = nn.CrossEntropyLoss(
-                weight=torch.tensor(model_config.loss_weights),
+                weight=torch.tensor(model_config.loss_weights)
+                if model_config.loss_weights is not None
+                else None,
                 ignore_index=BaseVocab.PAD_INDEX,
                 label_smoothing=model_config.label_smoothing,
             )
