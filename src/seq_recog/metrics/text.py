@@ -17,9 +17,10 @@ class Levenshtein(BaseMetric):
     KEYS = [METRIC_NAME]
     AGG_KEYS = []
 
-    def __init__(self, vocab: GenericDecryptVocab) -> None:
+    def __init__(self, vocab: GenericDecryptVocab, padded: bool = False) -> None:
         super().__init__()
         self.vocab = vocab
+        self.padded = padded
 
     def __call__(
         self, output: List[Dict[str, Any]], batch: BatchedSample
@@ -42,8 +43,14 @@ class Levenshtein(BaseMetric):
         out = []
 
         for model_out, gt, ln in zip(output, batch.gt, batch.gt_len):
-            ln = ln.item()
-            lev = levenshtein(model_out["text"], gt[:ln])[0]
+            text = model_out["text"]
+            if self.padded:
+                text = self.vocab.unpad(text)
+                gt = self.vocab.unpad(gt)
+            else:
+                ln = ln.item()
+                gt = gt[:ln]
+            lev = levenshtein(model_out["text"], gt)[0]
             out.append({"levenshtein": lev})
 
         return out

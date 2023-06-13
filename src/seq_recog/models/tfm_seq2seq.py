@@ -1,11 +1,17 @@
 """Transformer-based Encoder-Decoder models."""
 
 from typing import List, Optional
+from warnings import warn
 
 import torch
+import torch.nn.functional as F
 from torch import nn
-from torch import TensorType
+from torch import Tensor, TensorType
+from vit_pytorch import ViT, Extractor
 
+from .misc import TokenEmbedding, PositionalEncoding
+
+from .model_zoo import ModelZoo
 from .losses.focal_loss import SequenceFocalLoss
 from .base_model import BaseModel
 from .base_model import BaseModelConfig
@@ -66,7 +72,11 @@ class TransformerSeq2Seq(BaseModel):
         output: torch.Tensor
             The output of the model for the input batch.
         """
-        raise NotImplementedError
+        images = batch.img.to(device)
+        transcript = batch.gt.to(device)
+
+        output = self.forward(images, transcript)
+        return output
 
     def compute_loss(
         self, batch: BatchedSample, output: torch.Tensor, device: torch.device
@@ -87,7 +97,10 @@ class TransformerSeq2Seq(BaseModel):
         torch.float32
             The model's loss for the given input.
         """
-        raise NotImplementedError
+        output = output.view(-1, output.shape[-1])
+        transcript = batch.gt.to(device)[:, 1:, :].view(-1)
+
+        return self.loss(output, transcript)
 
     @staticmethod
     def _get_tgt_mask(seqlen: int) -> TensorType:
@@ -97,3 +110,133 @@ class TransformerSeq2Seq(BaseModel):
         mask = mask.masked_fill(mask == 1, float(0.0))
 
         return mask
+
+
+class ViTSeq2SeqTransformerConfig(TransformerSeq2SeqConfig):
+    """Settings for Transformer-Based Seq2Seq models."""
+
+    freeze_backbone: bool
+    output_units: int
+    model_dim: int
+    patch_size: int
+    enc_layers: int
+    enc_heads: int
+    mlp_dim: int
+    dropout: float
+    emb_dropout: float
+    pretrained_backbone: str
+    dec_heads: int
+    norm_first: bool
+    activation: str
+    dec_layers: int
+
+
+@ModelZoo.register_model
+class ViTSeq2SeqTransformer(nn.Module):
+    """Implements a full seq2seq transformer using vit_pytorch."""
+
+    MODEL_CONFIG = ViTSeq2SeqTransformerConfig
+
+    ACTIVATIONS = {
+        "relu": F.relu,
+        "gelu": F.gelu,
+    }
+
+    def __init__(
+        self, model_config: ViTSeq2SeqTransformerConfig, data_config: BaseDataConfig
+    ) -> None:
+        """Initialise Model."""
+        super().__init__(model_config, data_config)
+
+        self.freeze_backbone = model_config.freeze_backbone
+
+        self.embedder = TokenEmbedding(
+            model_config.output_units,
+            model_config.model_dim,
+        )
+        vit = ViT(
+            image_size=(data_config.target_shape[1], data_config.target_shape[0]),
+            patch_size=model_config.patch_size,
+            num_classes=model_config.output_units,
+            dim=model_config.model_dim,
+            depth=model_config.enc_layers,
+            heads=model_config.enc_heads,
+            mlp_dim=model_config.mlp_dim,
+            dropout=model_config.dropout,
+            emb_dropout=model_config.emb_dropout,
+        )
+
+        if model_config.pretrained_backbone is not None:
+            weights = torch.load(model_config.pretrained_backbone)
+            del weights["mlp_head.1.weight"]
+            del weights["mlp_head.1.bias"]
+            missing, unexpected = vit.load_state_dict(weights, strict=False)
+
+            if missing or unexpected:
+                warn(
+                    f"There are missing or unexpected weights in the loaded"
+                    f"encoder model: \n{'='*50}\nMissing: {missing}\n{'='*50}\n"
+                    f"Unexpected:{unexpected}"
+                )
+
+        self.encoder = Extractor(vit)
+
+        if self.freeze_backbone:
+            for param in self.encoder.parameters():
+                param.requires_grad = False
+
+        self.pos_encoding = PositionalEncoding(
+            model_config.model_dim, model_config.emb_dropout
+        )
+        self.max_inference_len = data_config.max_inference_len
+        self.vocab_size = model_config.output_units
+        self.norm = nn.LayerNorm(model_config.model_dim)
+
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=model_config.model_dim,
+            nhead=model_config.dec_heads,
+            dim_feedforward=model_config.model_dim,
+            dropout=model_config.dropout,
+            batch_first=True,
+            norm_first=model_config.norm_first,
+            activation=self.ACTIVATIONS[model_config.activation],
+        )
+        self.decoder = nn.TransformerDecoder(
+            decoder_layer, num_layers=model_config.dec_layers, norm=self.norm
+        )
+        self.linear = nn.Linear(model_config.model_dim, model_config.output_units)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x, y) -> Tensor:  # x: Batch,
+        _, x = self.encoder(x)  # Batch, Tok + 1, Dim
+
+        if self.training:
+            y = self.embedder(y)  # Batch, Seqlen, Dim
+            y = self.pos_encoding(y)  # Batch, Seqlen, Dim
+
+            # Embed the target sequence and positionally encode it
+            x = self.decoder(
+                y, x, tgt_mask=self.tgt_mask, tgt_key_padding_mask=pad_mask
+            )
+            x = self.linear(x)  # Batch, Seqlen, Class
+            # x = self.softmax(x)
+        else:
+            newy = torch.zeros(y.shape[0], y.shape[1] + 1, *y.shape[2:]).to(y.device)
+            newy[:, 0] = y[:, 0]
+            y = newy
+
+            outputs = torch.zeros(
+                y.shape[0], self.max_inference_len - 1, self.vocab_size
+            ).to(y.device)
+            for ii in range(1, self.max_inference_len):
+                y_t = y[:, :ii]
+                y_t = self.embedder(y_t)
+                y_t = self.pos_encoding(y_t)
+                out = self.decoder(y_t, x, tgt_mask=self.tgt_mask[:ii, :ii])
+                out = self.linear(out)
+
+                outputs[:, ii - 1, :] = out[:, ii - 1, :]
+                y[:, ii] = torch.argmax(out, -1)[:, ii - 1]
+
+            x = outputs
+        return x

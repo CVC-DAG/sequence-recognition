@@ -1,7 +1,7 @@
 """RNN-based Encoder-Decoder models."""
 
 import random
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -96,7 +96,7 @@ class RNNSeq2Seq(BaseModel):
             The model's loss for the given input.
         """
         output = output.view(-1, output.shape[-1])
-        transcript = batch.gt.to(device).view(-1)
+        transcript = batch.gt.to(device)[:, 1:, :].view(-1)
 
         return self.loss(output, transcript)
 
@@ -171,14 +171,35 @@ class KangSeq2Seq(RNNSeq2Seq):
         self.vocab_size = model_config.output_units
         self.teacher_rate = model_config.teacher_rate
 
-    # src: Variable
-    # tar: Variable
     def forward(
         self,
         src: TensorType,
         tar: TensorType,
         src_len: TensorType,
-    ):
+    ) -> Tuple[TensorType, List[TensorType]]:
+        """Transcribes the contents of an image.
+
+        Parameters
+        ----------
+        src : TensorType
+            A batched set of input images. A tensor of shape N x C x H x W where N is
+            the batch size, C is the number of channels, H is the height and W is the
+            width of the image.
+        tar : TensorType
+            A batched set of transcriptions. A tensor of shape N x S where N is the
+            batch size and S is the sequence length. It contains the list of indices
+            representing each character of the image.
+        src_len : TensorType
+            A batched set of input lengths. It has shape N (batch size) and it contains
+            the width of the input images without accounting for padding.
+
+        Returns
+        -------
+        Tuple[TensorType, List[TensorType]]:
+            The set of output transcriptions in an N x S - 1 tensor where N is the batch
+            size and S is the sequence length and the set of attention weights packed
+            in a list of length S and contained in tensors of shape N x S.
+        """
         batch_size, _, _, _ = src.shape
         tar = tar.permute(1, 0)
         # (seqlen, batch)
