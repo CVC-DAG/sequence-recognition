@@ -15,9 +15,9 @@ from .base_model import BaseModel
 from .base_model import BaseModelConfig
 from ..data.base_dataset import BatchedSample, BaseDataConfig, BaseVocab
 
-import rnn_encoders as rnne
-import rnn_decoders as rnnd
-import rnn_attention as rnna
+from . import rnn_encoders as rnne
+from . import rnn_decoders as rnnd
+from . import rnn_attention as rnna
 
 
 class RNNSeq2SeqConfig(BaseModelConfig):
@@ -25,6 +25,7 @@ class RNNSeq2SeqConfig(BaseModelConfig):
 
     loss_function: str = "cross-entropy"
     focal_loss_gamma: float = 1.0
+    focal_loss_alpha: float = 1.0
     label_smoothing: float = 0.0
     loss_weights: Optional[List[float]] = None
 
@@ -40,12 +41,15 @@ class RNNSeq2Seq(BaseModel):
         """Initialise Model."""
         super().__init__(model_config, data_config)
 
-        if model_config.loss == "focal":
+        if model_config.loss_function == "focal":
             self.loss = SequenceFocalLoss(
                 gamma=model_config.focal_loss_gamma,
+                alpha=model_config.focal_loss_alpha,
                 label_smoothing=model_config.label_smoothing,
                 ignore_index=BaseVocab.PAD_INDEX,
-                class_weights=torch.tensor(model_config.loss_weights),
+                class_weights=torch.tensor(model_config.loss_weights)
+                if model_config.loss_weights is not None
+                else None,
             )
         else:
             self.loss = nn.CrossEntropyLoss(
@@ -71,7 +75,7 @@ class RNNSeq2Seq(BaseModel):
         """
         images = batch.img.to(device)
         transcript = batch.gt.to(device)
-        lengths = batch.curr_shape[:, 0].to(device)
+        lengths = batch.curr_shape[0].to(device)
 
         output, _ = self.forward(images, transcript, lengths)
         return output
@@ -95,8 +99,8 @@ class RNNSeq2Seq(BaseModel):
         torch.float32
             The model's loss for the given input.
         """
-        output = output.view(-1, output.shape[-1])
-        transcript = batch.gt.to(device)[:, 1:, :].view(-1)
+        output = output.reshape(-1, output.shape[-1])
+        transcript = batch.gt.to(device)[:, 1:].reshape(-1)
 
         return self.loss(output, transcript)
 
@@ -108,6 +112,7 @@ class KangSeq2SeqConfig(RNNSeq2SeqConfig):
     vgg_bn: bool
     vgg_pretrain: bool
     encoder_layers: int
+    decoder_layers: int
     hidden_size: int
     attn_filters: int
     attn_kernsize: int
@@ -147,7 +152,7 @@ class KangSeq2Seq(RNNSeq2Seq):
             width=data_config.target_shape[0],
             dropout=model_config.dropout,
         )
-        self.attention = rnna.LocationAttention(
+        attention = rnna.LocationAttention(
             hidden_size=model_config.hidden_size,
             nfilters=model_config.attn_filters,
             kernel_size=model_config.attn_kernsize,
@@ -157,7 +162,8 @@ class KangSeq2Seq(RNNSeq2Seq):
             hidden_size=model_config.hidden_size,
             embedding_size=model_config.embedding_size,
             vocab_size=model_config.output_units,
-            attention=self.attention,
+            nlayers=model_config.decoder_layers,
+            attention=attention,
             dropout=model_config.dropout,
             tradeoff_context_embed=model_config.tradeoff_context_embedding,
             multinomial=model_config.multinomial,
@@ -167,7 +173,7 @@ class KangSeq2Seq(RNNSeq2Seq):
             model_config.hidden_size,
         )
         self.img_width, self.img_height = data_config.target_shape
-        self.output_max_len = data_config.max_length
+        self.output_max_len = data_config.target_seqlen
         self.vocab_size = model_config.output_units
         self.teacher_rate = model_config.teacher_rate
 
@@ -204,19 +210,24 @@ class KangSeq2Seq(RNNSeq2Seq):
         tar = tar.permute(1, 0)
         # (seqlen, batch)
 
-        src_len = np.ceil(src_len.numpy() / 16).astype("int")
-        src_len = np.maximum(1, src_len)
+        src_len = torch.ceil(src_len / 16).to(torch.int)
+        src_len = torch.maximum(
+            torch.ones(src_len.shape[0], dtype=torch.int).to(src_len.device),
+            src_len,
+        )
 
         out_enc, hidden_enc = self.encoder(src, src_len)
         # Output: (seqlen, batch, hidden)
         # Hidden: (nlayers, batch, hidden)
         attn_proj = self.encoder_proj(out_enc)
         # (seqlen, batch, hidden)
+        attn_proj = attn_proj.permute(1, 0, 2)
+        # (batch, seqlen, hidden)
 
         attn_weights = Variable(
             torch.zeros(batch_size, self.img_width // 16),
             requires_grad=True,
-        ).cuda()
+        ).to(out_enc.device)
         # (batch, seqlen)
 
         outputs = Variable(

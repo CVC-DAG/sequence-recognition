@@ -85,7 +85,7 @@ class VggRNNEncoder(nn.Module):
             The final
         """
         batch_size = src.shape[0]
-        out = self.layer(src)
+        out = self.backbone(src)
 
         # (batch, channels, height, width)
         out = self.backbone_dropout(out)
@@ -106,6 +106,7 @@ class VggRNNEncoder(nn.Module):
         output, output_len = pad_packed_sequence(
             output,
             batch_first=False,
+            total_length=self.width // 16,
         )
         # Output: (width, batch, 2 * hidden)
         # Hidden: (2 * n_layers, batch, hidden)

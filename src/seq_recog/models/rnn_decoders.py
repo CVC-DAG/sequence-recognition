@@ -95,7 +95,7 @@ class RNNDecoder(nn.Module):
             Output of the encoder of the model. It is a S x N x H tensor, where N is the
             batch size, S is the sequence length and H is the hidden dimension size.
         attn_proj : TensorType
-            The layer-projected version of the output of the encoder. It is a S x N x H
+            The layer-projected version of the output of the encoder. It is a N x S x H
             tensor, where N is the batch size, S is the sequence length and H is the
             hidden dimension size.
         src_len : TensorType
@@ -114,7 +114,6 @@ class RNNDecoder(nn.Module):
             is the maximum sequence length. The output contains the logit probabilities
             of each class of the model.
         """
-        attn_proj = attn_proj.permute(1, 2, 0)
         attn_weights = self.attention(hidden, attn_proj, src_len, prev_attn)
         attn_weights = attn_weights.unsqueeze(-1)
         # (batch, seqlen, 1)
@@ -140,7 +139,7 @@ class RNNDecoder(nn.Module):
         # (batch, hidden + embedding)
         in_dec = in_dec.unsqueeze(0)
         # (1, batch, hidden + embedding) -> For sequence length
-        output, latest_hidden = self.gru(in_dec, hidden)
+        output, latest_hidden = self.gru(in_dec, hidden.contiguous())
         # Output: (1, batch, hidden)
         # Hidden: (layers, hidden)
         output = output.squeeze(0)

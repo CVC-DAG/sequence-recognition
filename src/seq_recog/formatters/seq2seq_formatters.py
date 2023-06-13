@@ -17,11 +17,10 @@ class GreedyTextDecoder(BaseFormatter):
     KEY_TEXT_CONF = "text_confidences"
     KEYS = [KEY_TEXT, KEY_TEXT_CONF]
 
-    def __init__(self, vocab: BaseVocab, confidences: bool = False) -> None:
+    def __init__(self, confidences: bool = False) -> None:
         """Construct GreedyTextDecoder object."""
         super().__init__()
         self._confidences = confidences
-        self._vocab = vocab
 
     def __call__(
         self, model_output: torch.Tensor, batch: BatchedSample
@@ -42,7 +41,7 @@ class GreedyTextDecoder(BaseFormatter):
             A List of sequences of tokens corresponding to the decoded output and the
             output confidences encapsulated within a dictionary.
         """
-        indices = torch.argmax(model_output, -1)
+        indices = np.argmax(model_output, -1)
 
-        output = [{self.KEY_TEXT: ii.numpy()} for ii in indices]
+        output = [{self.KEY_TEXT: ii} for ii in indices]
         return output

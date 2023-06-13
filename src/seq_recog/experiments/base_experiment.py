@@ -2,7 +2,7 @@
 
 import json
 from abc import ABC, abstractmethod
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from shutil import copyfile
 from typing import Dict, Optional, Tuple, Type
@@ -65,13 +65,18 @@ class Experiment(ABC):
     @staticmethod
     def _load_configuration(
         config_path: str,
-        test: bool,
+        args: Namespace,
         config_type: Type,
     ) -> ExperimentConfig:
         path = Path(config_path)
         with open(path, "r") as f_config:
             cfg = json.load(f_config)
-            cfg["exp_name"] = path.stem + ("_test" if test else "")
+            cfg["exp_name"] = path.stem + ("_test" if args.test else "")
+
+            if args.base_data_dir is not None:
+                cfg["dirs"]["base_data_dir"] = args.base_data_dir
+            if args.results_dir is not None:
+                cfg["dirs"]["results_dir"] = args.results_dir
         cfg = config_type(**cfg)
 
         return cfg
@@ -107,12 +112,14 @@ class Experiment(ABC):
         group.add_argument(
             "--config_path",
             type=str,
+            metavar="<PATH TO INPUT CONFIG JSON FILE>",
             help="Configuration path for the experiment",
             required=False,
         )
         group.add_argument(
             "--get_template",
             type=str,
+            metavar="<PATH TO OUTPUT CONFIG JSON FILE>",
             help="If and where to produce a configuration template",
             default=None,
             required=False,
@@ -130,6 +137,22 @@ class Experiment(ABC):
             action="store_true",
             required=False,
         )
+        parser.add_argument(
+            "--base_data_dir",
+            metavar="<PATH TO BASE DATA FOLDER>",
+            help="Override the base data directory.",
+            type=str,
+            default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--results_dir",
+            metavar="<PATH TO RESULTS FOLDER>",
+            help="Override the results directory.",
+            type=str,
+            default=None,
+            required=False,
+        )
 
         args = parser.parse_args()
 
@@ -138,9 +161,7 @@ class Experiment(ABC):
                 json.dump(self.EXPERIMENT_CONFIG.generate_template(), f_json, indent=4)
                 quit()
 
-        cfg = self._load_configuration(
-            args.config_path, args.test is not None, self.EXPERIMENT_CONFIG
-        )
+        cfg = self._load_configuration(args.config_path, args, self.EXPERIMENT_CONFIG)
         self._setup_dirs(
             cfg.dirs,
             cfg.exp_name,

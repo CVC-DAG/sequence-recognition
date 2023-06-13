@@ -28,6 +28,11 @@ class LocationAttention(nn.Module):
         else:
             self.sigma = nn.Softmax(dim=-1)
 
+        self.minus_infty = nn.Parameter(
+            torch.Tensor([-torch.inf]).to(torch.float32),
+            requires_grad=False,
+        )
+
     def _attn_smoothing(self, x):
         return self.sigmoid(x) / self.sigmoid(x).sum(axis=-1)
 
@@ -47,7 +52,7 @@ class LocationAttention(nn.Module):
             the batch size, L is the number of decoder layers and H is the hidden
             dimension size.
         encoder_output : TensorType
-            Output of the encoder of the mode. It is a S x N x H tensor, where N is the
+            Output of the encoder of the mode. It is a N x S x H tensor, where N is the
             batch size, S is the sequence length and H is the hidden dimension size.
         enc_len : TensorType
             A tensor containing the length in number of columns of the input batch (in
@@ -62,23 +67,25 @@ class LocationAttention(nn.Module):
             A tensor containing the attention weights for the current time step. It is
             an N x S tensor, where N is the batch size and S is the sequence length.
         """
-        encoder_output = encoder_output.transpose(0, 1)
-        # (batch, seqlen, hidden)
         attn_energy = self.score(hidden, encoder_output, prev_attention)
         # (batch, seqlen)
 
         batch, seqlen, hidden = encoder_output.shape
-        indices = torch.arange(seqlen).unsqueeze(0).expand(batch, -1)
+        indices = (
+            torch.arange(seqlen)
+            .unsqueeze(0)
+            .expand(batch, -1)
+            .to(encoder_output.device)
+        )
         attn_energy = self.sigma(
             torch.where(
-                indices < enc_len.unsqueeze(0),
+                indices < enc_len.unsqueeze(1),
                 attn_energy,
-                -torch.inf,
+                self.minus_infty,
             )
         )
         return attn_energy
 
-    # encoder_output: b, t, f
     def score(
         self,
         hidden: TensorType,
@@ -119,11 +126,7 @@ class LocationAttention(nn.Module):
         conv_prev_attn = self.prev_attn_proj(conv_prev_attn)
         # (batch, seqlen, hidden)
 
-        # FIXME: This is the same operation every time.
-        encoder_output_attn = self.encoder_output_proj(encoder_output)
-        # (batch, seqlen, hidden)
-
-        res_attn = self.tanh(encoder_output_attn + hidden_attn + conv_prev_attn)
+        res_attn = self.tanh(encoder_output + hidden_attn + conv_prev_attn)
         out_attn = self.out(res_attn)
         # (batch, seqlen, 1)
 
