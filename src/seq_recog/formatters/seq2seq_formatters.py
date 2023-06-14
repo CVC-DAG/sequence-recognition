@@ -7,7 +7,7 @@ from numpy.typing import ArrayLike
 import torch
 
 from .base_formatter import BaseFormatter
-from ..data.base_dataset import BatchedSample, BaseVocab
+from ..data.base_dataset import BatchedSample
 
 
 class GreedyTextDecoder(BaseFormatter):
@@ -42,6 +42,10 @@ class GreedyTextDecoder(BaseFormatter):
             output confidences encapsulated within a dictionary.
         """
         indices = np.argmax(model_output, -1)
+        confs = np.take_along_axis(model_output, indices[:, :, None], -1).squeeze(-1)
 
-        output = [{self.KEY_TEXT: ii} for ii in indices]
+        output = [
+            {self.KEY_TEXT: ii, self.KEY_TEXT_CONF: conf}
+            for ii, conf in zip(indices, confs)
+        ]
         return output

@@ -372,14 +372,16 @@ class BaseTrainer:
                 self.save_current_weights(epoch)
 
             if not epoch % self.config.eval_every:
-                val_loss, criterion = self.validator.validate(
+                val_loss, criterion, val_folder = self.validator.validate(
                     self.model, epoch, self.train_iters, self.device
                 )
 
-                if (self.validator.maximise() and criterion > self.best_metric) or not (
-                    self.validator.maximise() and criterion < self.best_metric
+                if (self.validator.maximise() and criterion > self.best_metric) or (
+                    (not self.validator.maximise()) and criterion < self.best_metric
                 ):
                     self.best_metric = criterion
                     self.best_epoch = epoch
 
                     self.model.save_weights(str(self.save_path / self.best_name))
+                else:
+                    rmtree(val_folder)

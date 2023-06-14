@@ -129,5 +129,5 @@ class GreedyTextDecoder(BaseFormatter):
             if self._confidences:
                 output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
             else:
-                output.append({self.KEY_TEXT: decoded})
+                output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: None})
         return output

@@ -94,6 +94,8 @@ class BaseValidator:
             Loss value for validation.
         float
             Aggregate metric for validation.
+        Path
+            The folder where the validation results have been logged.
         """
         with torch.no_grad():
             model.eval()
@@ -137,4 +139,4 @@ class BaseValidator:
         with open(log_path / "summary.json", "w") as f_summary:
             json.dump(agg_metrics, f_summary, indent=4)
 
-        return loss, final_metric
+        return loss, final_metric, log_path
