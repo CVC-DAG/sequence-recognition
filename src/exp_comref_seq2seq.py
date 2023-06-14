@@ -44,7 +44,7 @@ class ComrefSeq2SeqExperiment(Experiment):
             Path(self.cfg.dirs.splits_file),
             self.vocab,
             self.cfg.data,
-            False,
+            True,
         )
 
         # Formatters
