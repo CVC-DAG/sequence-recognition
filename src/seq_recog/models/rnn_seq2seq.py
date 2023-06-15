@@ -428,8 +428,8 @@ class KangSeq2Seq2Head(RNNSeq2Seq):
             torch.zeros(self.output_max_len - 1, batch_size, self.sec_vocab_size),
             requires_grad=True,
         )
-        prm_output = Variable(one_hot(primary_tar[0].data))
-        sec_output = Variable(one_hot(secondary_tar[0].data))
+        prm_output = Variable(one_hot(primary_tar[0].data, self.prm_vocab_size))
+        sec_output = Variable(one_hot(secondary_tar[0].data, self.sec_vocab_size))
         prm_outputs = prm_outputs.cuda()
         sec_outputs = sec_outputs.cuda()
         hidden = hidden_enc

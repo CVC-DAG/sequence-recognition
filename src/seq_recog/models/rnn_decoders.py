@@ -209,6 +209,7 @@ class RNN2HeadDecoder(nn.Module):
                 nlayers,
                 dropout=dropout,
             )
+        self.activ = nn.ReLU()
         self.prm_out = nn.Linear(hidden_size, prm_vocab_size)
         self.sec_out = nn.Linear(hidden_size, sec_vocab_size)
 
@@ -288,6 +289,7 @@ class RNN2HeadDecoder(nn.Module):
         # Output: (1, batch, hidden)
         # Hidden: (layers, hidden)
         features = features.squeeze(0)
+        features = self.activ(features)
         # (batch, hidden)
         prm_logits = self.prm_out(features)
         sec_logits = self.sec_out(features)

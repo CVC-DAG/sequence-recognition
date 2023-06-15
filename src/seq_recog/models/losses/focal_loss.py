@@ -28,6 +28,7 @@ class SequenceFocalLoss(nn.Module):
         ignore_index: Optional[int],
         class_weights: Optional[Tensor] = None,
         reduction: str = "mean",
+        prob_computation: str = "softmax",
     ) -> None:
         super().__init__()
 
@@ -45,7 +46,10 @@ class SequenceFocalLoss(nn.Module):
         else:
             self.weights = None
 
-        self.sigmoid = nn.Sigmoid()
+        if prob_computation == "sigmoid":
+            self.probability = nn.Sigmoid()
+        else:
+            self.probability = nn.Softmax()
 
     def forward(
         self,
@@ -73,13 +77,13 @@ class SequenceFocalLoss(nn.Module):
         """
         target_onehot = F.one_hot(target, num_classes=output.size(-1)).float()
 
-        p = self.sigmoid(output)
+        p = self.probability(output)
 
         if self.label_smoothing > 0.0:
             nclasses = output.shape[-1]
             p = ((1 - self.label_smoothing) * p) + (self.label_smoothing / nclasses)
 
-        ce_loss = F.binary_cross_entropy_with_logits(
+        ce_loss = F.binary_cross_entropy(
             input=p,
             target=target_onehot,
             reduction="none",
@@ -97,8 +101,8 @@ class SequenceFocalLoss(nn.Module):
             ignore_mask = target != self.ignore_index
             loss = loss[ignore_mask]
         if self.reduction == "mean":
-            loss = loss.flatten().mean()
+            loss = loss.sum(dim=0).mean()
         else:
-            loss = loss.flatten().sum()
+            loss = loss.sum(dim=0).sum()
 
         return loss
