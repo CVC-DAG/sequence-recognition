@@ -22,7 +22,7 @@
     "model": {
         "model_name": "kang_2head_seq2seq",
         "model_weights": null,
-        "loss_function": "cross-entropy",
+        "loss_function": "focal",
         "focal_loss_gamma": 2.0,
         "focal_loss_alpha": 0.25,
         "label_smoothing": 0.1,
