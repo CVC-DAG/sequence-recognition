@@ -38,32 +38,32 @@ class LocationAttention(nn.Module):
 
     def forward(
         self,
-        hidden: TensorType,
-        encoder_output: TensorType,
-        enc_len: TensorType,
-        prev_attention: TensorType,
-    ) -> TensorType:
+        hidden: torch.FloatTensor,
+        encoder_output: torch.FloatTensor,
+        enc_len: torch.LongTensor,
+        prev_attention: torch.FloatTensor,
+    ) -> torch.FloatTensor:
         """Produce normalised attention weights for a single decoding interation.
 
         Parameters
         ----------
-        hidden : TensorType
+        hidden : torch.FloatTensor
             Current hidden state of the decoder. It is a N x H x L tensor, where N is
             the batch size, L is the number of decoder layers and H is the hidden
             dimension size.
-        encoder_output : TensorType
+        encoder_output : torch.FloatTensor
             Output of the encoder of the mode. It is a N x S x H tensor, where N is the
             batch size, S is the sequence length and H is the hidden dimension size.
-        enc_len : TensorType
+        enc_len : torch.LongTensor
             A tensor containing the length in number of columns of the input batch (in
             other words, the amount of feature vectors that are not padding).
-        prev_attention : TensorType
+        prev_attention : torch.FloatTensor
             The attention weights for the previous decoding time step. It is an N x S
             tensor, where N is the batch size and S is the sequence length.
 
         Returns
         -------
-        TensorType
+        torch.FloatTensor
             A tensor containing the attention weights for the current time step. It is
             an N x S tensor, where N is the batch size and S is the sequence length.
         """
@@ -71,6 +71,7 @@ class LocationAttention(nn.Module):
         # (batch, seqlen)
 
         batch, seqlen, hidden = encoder_output.shape
+        enc_len = enc_len.to(encoder_output.device)
         indices = (
             torch.arange(seqlen)
             .unsqueeze(0)
@@ -88,28 +89,28 @@ class LocationAttention(nn.Module):
 
     def score(
         self,
-        hidden: TensorType,
-        encoder_output: TensorType,
-        prev_attention: TensorType,
+        hidden: torch.FloatTensor,
+        encoder_output: torch.FloatTensor,
+        prev_attention: torch.FloatTensor,
     ) -> TensorType:
         """Produce the unnormalised attention scores for the given time step.
 
         Parameters
         ----------
-        hidden : TensorType
+        hidden : torch.FloatTensor
             Current hidden state of the decoder. It is a N x H x L tensor, where N is
             the batch size, L is the number of decoder layers and H is the hidden
             dimension size.
-        encoder_output : TensorType
+        encoder_output : torch.FloatTensor
             Output of the encoder of the model. It is a N x S x H tensor, where N is the
             batch size, S is the sequence length and H is the hidden dimension size.
-        prev_attention : TensorType
+        prev_attention : torch.FloatTensor
             The attention weights for the previous decoding time step. It is an N x S
             tensor, where N is the batch size and S is the sequence length.
 
         Returns
         -------
-        TensorType
+        torch.FloatTensor
             Unnormalised energy values for each element along the temporal (sequence
             length) dimension. It is an N x S tensor, with N being batch size and S
             being sequence length.

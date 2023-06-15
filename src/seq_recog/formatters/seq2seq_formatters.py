@@ -8,6 +8,7 @@ import torch
 
 from .base_formatter import BaseFormatter
 from ..data.base_dataset import BatchedSample
+from ..models.base_model import ModelOutput
 
 
 class GreedyTextDecoder(BaseFormatter):
@@ -23,15 +24,15 @@ class GreedyTextDecoder(BaseFormatter):
         self._confidences = confidences
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, ArrayLike]]:
         """Convert a model output to a token sequence.
 
         Parameters
         ----------
-        model_output: torch.Tensor
-            The output of a Seq2Seq model. Should be a N x S x C matrix, where S is the
-            sequence length, N is the batch size and C is the number of classes.
+        model_output: ModelOutput
+            The output of a Seq2Seq model. Should contain a N x S x C matrix, where S
+            is the sequence length, N is the batch size and C is the number of classes.
         batch: BatchedSample
             Batch information.
 
@@ -41,6 +42,7 @@ class GreedyTextDecoder(BaseFormatter):
             A List of sequences of tokens corresponding to the decoded output and the
             output confidences encapsulated within a dictionary.
         """
+        model_output = model_output.output
         indices = np.argmax(model_output, -1)
         confs = np.take_along_axis(model_output, indices[:, :, None], -1).squeeze(-1)
 

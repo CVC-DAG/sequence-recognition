@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .base_metric import BaseMetric
-from ..data.generic_decrypt import BatchedSample, GenericDecryptVocab
+from ..data.base_dataset import BatchedSample, BaseVocab
 from ..utils.ops import levenshtein
 
 
@@ -17,14 +17,14 @@ class Levenshtein(BaseMetric):
     KEYS = [METRIC_NAME]
     AGG_KEYS = []
 
-    def __init__(self, vocab: GenericDecryptVocab, padded: bool = False) -> None:
+    def __init__(self, vocab: BaseVocab, padded: bool = False) -> None:
         super().__init__()
         self.vocab = vocab
         self.padded = padded
 
     def __call__(
         self, output: List[Dict[str, Any]], batch: BatchedSample
-    ) -> Dict[str, ArrayLike]:
+    ) -> List[Dict[str, ArrayLike]]:
         """Compute the difference between a set of predictions and the GT.
 
         Parameters
@@ -65,7 +65,7 @@ class Levenshtein(BaseMetric):
         """
         return False
 
-    def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
+    def aggregate(self, metrics: List[Dict[str, ArrayLike]]) -> Dict[str, Any]:
         """Aggregate a set of predictions to return the average edit distance.
 
         Parameters
@@ -75,7 +75,7 @@ class Levenshtein(BaseMetric):
 
         Returns
         -------
-        float
+        Dict[str, float]
             Average of seqiou predictions for all bounding boxes.
         """
         preds = np.array([pred["levenshtein"] for pred in metrics])
@@ -94,7 +94,7 @@ class WordAccuracy(BaseMetric):
 
     def __call__(
         self, output: List[Dict[str, Any]], batch: BatchedSample
-    ) -> Dict[str, ArrayLike]:
+    ) -> List[Dict[str, ArrayLike]]:
         """Compute the difference between a set of predictions and the GT.
 
         Parameters
@@ -133,7 +133,7 @@ class WordAccuracy(BaseMetric):
         """
         return True
 
-    def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
+    def aggregate(self, metrics: List[Dict[str, ArrayLike]]) -> Dict[str, float]:
         """Aggregate a set of predictions to return the average edit distance.
 
         Parameters
@@ -143,8 +143,8 @@ class WordAccuracy(BaseMetric):
 
         Returns
         -------
-        float
-            Average of seqiou predictions for all bounding boxes.
+        Dict[str, float]:
+            Average of seqiou predictions for all bounding boxes encapsulated in a dict.
         """
         preds = np.array([pred[self.METRIC_NAME] for pred in metrics])
         return {self.METRIC_NAME: np.mean(preds)}

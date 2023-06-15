@@ -1,6 +1,10 @@
 """Base experiment types and configs."""
 
 import json
+import signal
+import sys
+import threading
+import multiprocessing
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
@@ -34,12 +38,12 @@ class ExperimentConfig(BaseModel):
     def generate_template(cls) -> Dict:
         """Generate a config representation for the current experiment."""
 
-        def generate_subdict(tt):
+        def _generate_subdict(tt):
             output = {}
             for name, field in tt.items():
                 subt = field.type_
                 if hasattr(subt, "__fields__"):
-                    output[name] = generate_subdict(subt.__fields__)
+                    output[name] = _generate_subdict(subt.__fields__)
                 else:
                     if hasattr(subt, "__name__"):
                         output[name] = subt.__name__
@@ -49,7 +53,7 @@ class ExperimentConfig(BaseModel):
                         output[name] = str(subt)
             return output
 
-        return generate_subdict(cls.__fields__)
+        return _generate_subdict(cls.__fields__)
 
 
 class Experiment(ABC):
@@ -60,6 +64,14 @@ class Experiment(ABC):
     def __init__(self):
         """Initialise Experiment."""
         self.cfg, self.test_weights, self.debug = self.setup()
+
+        self.train_data, self.valid_data, self.test_data = None, None, None
+        self.training_formatter, self.valid_formatter = None, None
+        self.training_metric, self.valid_metric = None, None
+        self.model = None
+
+        self.trainer, self.validator, self.tester = None, None, None
+
         self.initialise_everything()
 
     @staticmethod
@@ -105,6 +117,7 @@ class Experiment(ABC):
 
         :returns: Singleton configuration object.
         """
+        signal.signal(signal.SIGINT, self.sigint_handler)
         parser = ArgumentParser(
             description="Model training framework.",
         )
@@ -184,6 +197,42 @@ class Experiment(ABC):
 
         return cfg, args.test, args.debug
 
+    def sigint_handler(
+        self,
+        signal,
+        frame,
+    ) -> None:
+        if not (
+            multiprocessing.current_process().name == "MainProcess"
+            and threading.main_thread() == threading.current_thread()
+        ):
+            return
+        """Avoid zombie processes when killing through ctrl + c."""
+        option = input(
+            "SIGINT detected. Do you want to kill the training process? [y / n]: "
+        )
+        if option == "y":
+            if self.trainer and self.trainer.curr_logger:
+                self.trainer.curr_logger.close()
+
+            if self.validator and self.validator.logger:
+                self.validator.logger.close()
+
+            if self.tester and self.tester.logger:
+                self.tester.logger.close()
+
+            option2 = input("Should test on the best weights be run? [y / n]: ")
+            if option2 != "n":
+                try:
+                    self.model.load_weights(str(self.trainer.best_fname))
+                except FileNotFoundError:
+                    print("Could not load best weights. Shutting down...")
+                    sys.exit(1)
+                self.tester.validate(self.model, 0, 0, self.trainer.device)
+            sys.exit(0)
+        else:
+            return
+
     @abstractmethod
     def initialise_everything(self) -> None:
         """Initialise all member variables for the class."""
@@ -194,5 +243,7 @@ class Experiment(ABC):
         if self.test_weights:
             self.model.load_weights(self.test_weights)
             self.tester.validate(self.model, 0, 0, self.trainer.device)
+            sys.exit(0)
         else:
             self.trainer.train()
+            sys.exit(0)

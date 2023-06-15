@@ -22,6 +22,8 @@ from ..loggers.base_logger import BaseLogger
 from ..loggers.async_logger import AsyncLogger
 from ..metrics.base_metric import BaseMetric
 from ..models.base_model import BaseModel as BaseInferenceModel
+from ..utils.collate_batch import collate_batch
+from ..utils.progress import progress
 from ..validators.base_validator import BaseValidator
 
 from tqdm.auto import tqdm
@@ -55,7 +57,8 @@ class BaseTrainerConfig(BaseModel):
 
     cosann_sched: bool  # Use cosine annealing scheduler
     cosann_t0: int  # Iters until first restart
-    cosann_factor: float  # Factor by which to increase the number of iters until restart
+    cosann_factor: float  # Factor by which to increase the number of iters until
+    # restart
     cosann_min: float  # Min learning rate
 
     max_logging_epochs: int = 2
@@ -74,7 +77,7 @@ class BaseTrainer:
         validator: BaseValidator,
         formatter: BaseFormatter,
         metric: BaseMetric,
-        epoch_end_hook: Optional[Callable[List[Dict], bool]] = None,
+        epoch_end_hook: Optional[Callable] = None,
         logger: Type[BaseLogger] = AsyncLogger,
     ) -> None:
         """Construct the BaseTrainer object with given params.
@@ -114,6 +117,7 @@ class BaseTrainer:
         self.device = torch.device(self.config.device)
 
         self.logger_type = logger
+        self.curr_logger = None
 
         self.model = self.model.to(self.device)
 
@@ -124,7 +128,7 @@ class BaseTrainer:
         self.best_metric = -math.inf if self.validator.maximise() else math.inf
 
         self.curr_name = lambda epoch: f"weights_e{epoch:04}.pth"
-        self.best_name = "weights_BEST.pth"
+        self.best_fname = self.save_path / "weights_BEST.pth"
 
     @staticmethod
     def _create_optimizer(
@@ -274,6 +278,7 @@ class BaseTrainer:
             shuffle=True,
             pin_memory=bool("cuda" in config.device),
             num_workers=config.workers,
+            # collate_fn=collate_batch,
         )
         return dataloader
 
@@ -317,19 +322,23 @@ class BaseTrainer:
                 old_log_path = result_dirs.popleft()
                 rmtree(old_log_path)
 
-            curr_logger = self.logger_type(
+            self.curr_logger = self.logger_type(
                 log_path,
                 self.formatter,
                 self.metric,
                 False,
                 self.config.logging_threads,
             )
-
-            for batch in tqdm(self.train_data, desc=f"Epoch {epoch} in Progress..."):
+            batch_loss = 0.0
+            for batch in (
+                pbar := tqdm(self.train_data, desc=progress(epoch, "train", batch_loss))
+            ):
                 self.train_iters += 1
 
                 output = self.model.compute_batch(batch, self.device)
                 batch_loss = self.model.compute_loss(batch, output, self.device)
+
+                pbar.set_description_str(progress(epoch, "train", batch_loss))
 
                 self.optimizer.zero_grad()
                 batch_loss.backward()
@@ -349,16 +358,17 @@ class BaseTrainer:
                 wandb.log(
                     {
                         "lr": self._get_lr(self.optimizer),
-                        "train_loss": batch_loss,
+                        "train_loss": float(batch_loss),
                     },
                     step=self.train_iters,
                 )
 
-                output = output.detach().cpu().numpy()
-                curr_logger.process_and_log(output, batch)
+                output = output.numpy()
+                self.curr_logger.process_and_log(output, batch)
 
-            curr_logger.close()
-            agg_metrics = curr_logger.aggregate()
+            self.curr_logger.close()
+            agg_metrics = self.curr_logger.aggregate()
+            self.curr_logger = None
 
             with open(log_path / "summary.json", "w") as f_summary:
                 json.dump(agg_metrics, f_summary, indent=4)
@@ -382,6 +392,6 @@ class BaseTrainer:
                     self.best_metric = criterion
                     self.best_epoch = epoch
 
-                    self.model.save_weights(str(self.save_path / self.best_name))
+                    self.model.save_weights(str(self.best_fname))
                 else:
                     rmtree(val_folder)

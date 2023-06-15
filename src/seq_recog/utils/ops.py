@@ -364,7 +364,7 @@ def levenshtein(
     matrix = []
 
     if len(target) == 0:
-        return len(source)
+        return len(source), np.array([])
 
     # We call tuple() to force strings to be used as sequences
     if not (isinstance(source, np.ndarray)):

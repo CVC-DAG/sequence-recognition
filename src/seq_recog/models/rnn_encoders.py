@@ -3,8 +3,8 @@
 import numpy as np
 from typing import Optional, Tuple
 
+import torch
 from torch import nn
-from torch import TensorType
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from .cnns import create_vgg, VGG_EMBEDDING_SIZE
 
@@ -51,17 +51,17 @@ class VggRNNEncoder(nn.Module):
         )
 
     @staticmethod
-    def _sum_directions(x: TensorType) -> TensorType:
+    def _sum_directions(x: torch.FloatTensor) -> torch.FloatTensor:
         seqlen, batch, _ = x.shape
         x = x.view(seqlen, batch, 2, -1)
         return x.sum(dim=-2)
 
     def forward(
         self,
-        src: TensorType,
-        src_len: TensorType,
-        hidden: Optional[TensorType] = None,
-    ) -> Tuple[TensorType, TensorType]:
+        src: torch.FloatTensor,
+        src_len: torch.LongTensor,
+        hidden: Optional[torch.FloatTensor] = None,
+    ) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """Extract features from a batch of images and pass them through an RNN.
 
         Parameters
@@ -98,7 +98,7 @@ class VggRNNEncoder(nn.Module):
 
         out = pack_padded_sequence(
             out,
-            src_len.tolist(),
+            src_len,
             batch_first=False,
             enforce_sorted=False,
         )

@@ -14,6 +14,8 @@ from ..formatters.base_formatter import BaseFormatter
 from ..metrics.base_metric import BaseMetric
 from ..loggers.base_logger import BaseLogger
 from ..loggers.async_logger import AsyncLogger
+from ..utils.collate_batch import collate_batch
+from ..utils.progress import progress
 
 
 class BaseValidator:
@@ -57,6 +59,7 @@ class BaseValidator:
             shuffle=False,
             pin_memory=False,
             num_workers=workers,
+            # collate_fn=collate_batch,
         )
         self.valid_formatter = valid_formatter
         self.valid_metric = valid_metric
@@ -65,6 +68,7 @@ class BaseValidator:
         self.workers = workers
 
         self.logger_type = logger
+        self.logger = None
 
     def maximise(self) -> bool:
         """Return whether the underlying metric is maximising."""
@@ -87,6 +91,8 @@ class BaseValidator:
             Number of the epoch on the model instance.
         iters: int
             Training iteration of the model instance.
+        device: torch.device
+            What device to perform validation on.
 
         Returns
         -------
@@ -103,7 +109,7 @@ class BaseValidator:
             log_path = self.save_path / f"e{epoch}_{self.mode}"
             log_path.mkdir(exist_ok=True)
 
-            logger = self.logger_type(
+            self.logger = self.logger_type(
                 log_path,
                 self.valid_formatter,
                 self.valid_metric,
@@ -112,27 +118,33 @@ class BaseValidator:
             )
 
             loss = 0.0
-
-            for batch in tqdm(
-                self.valid_data, desc=f"{self.mode} for {epoch} in Progress..."
+            batch_loss = 0.0
+            for batch in (
+                pbar := tqdm(
+                    self.valid_data, desc=progress(epoch, self.mode, batch_loss)
+                )
             ):
                 output = model.compute_batch(batch, device)
                 batch_loss = model.compute_loss(batch, output, device)
 
-                output = output.detach().cpu().numpy()
-                logger.process_and_log(output, batch)
+                pbar.set_description_str(progress(epoch, self.mode, batch_loss))
 
-        logger.close()
-        agg_metrics = logger.aggregate()
+                output = output.numpy()
+                self.logger.process_and_log(output, batch)
+
+        self.logger.close()
+        agg_metrics = self.logger.aggregate()
+        self.logger = None
         final_metric = agg_metrics[next(iter(agg_metrics), None)]
 
         loss /= len(self.valid_data)
+        log_dict = {
+            "epoch": epoch,
+            f"{self.mode}_loss": float(batch_loss),
+        } | {f"{self.mode}_{k}": v for k, v in agg_metrics.items()}
+        print(log_dict)
         wandb.log(
-            {
-                "epoch": epoch,
-                f"{self.mode}_loss": batch_loss,
-            }
-            | {f"{self.mode}_{k}": v for k, v in agg_metrics.items()},
+            log_dict,
             step=iters,
         )
 

@@ -12,7 +12,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from PIL import Image
 import torch.utils.data as D
-from torch import Tensor
+import torch
 from torchvision import transforms as T
 
 from pydantic import BaseModel
@@ -30,16 +30,32 @@ class DatasetSample:
     fname: str
 
 
-class BatchedSample(NamedTuple):
-    """Represents a batch of samples ready for inference."""
+# @dataclass
+# class BatchedSample:
+#     """Represents a batch of samples which are ready for inference."""
+#
+#     img: Union[ArrayLike, torch.FloatTensor]
+#     gt: Union[ArrayLike, torch.LongTensor]
+#     gt_len: Union[ArrayLike, torch.LongTensor]
+#     fname: Tuple
+#     og_shape: Tuple
+#     curr_shape: Tuple
+#     segm: Optional[Union[ArrayLike, torch.LongTensor]]
 
-    img: Union[ArrayLike, Tensor]
-    gt: Union[ArrayLike, Tensor]
-    gt_len: Union[ArrayLike, Tensor]
+
+# FIXME NamedTuples cannot be extended => should convert to dataclass
+# @dataclass
+class BatchedSample(NamedTuple):
+    """Represents a batch of samples which are ready for inference."""
+
+    img: Union[ArrayLike, torch.FloatTensor]
+    gt: Union[ArrayLike, torch.LongTensor]
+    gt_sec: Union[ArrayLike, torch.LongTensor]
+    gt_len: Union[ArrayLike, torch.LongTensor]
     fname: Tuple
     og_shape: Tuple
     curr_shape: Tuple
-    segm: Optional[Union[ArrayLike, Tensor]]
+    segm: Optional[Union[ArrayLike, torch.LongTensor]]
 
 
 class BaseVocab:
@@ -103,7 +119,7 @@ class BaseVocab:
 
         Parameters
         ----------
-        labels: List[int]
+        encoded: List[int]
             List of indices for a Decrypt transcript.
 
         Returns
@@ -137,12 +153,12 @@ class BaseVocab:
             and the end of the sequence (if the special flag is passed as True) plus
             padding tokens to match the max sequence length provided as argument.
         """
-        padded = np.full(pad_len, self.vocab2index[self.pad_tok])
+        padded = np.full(pad_len, self.PAD_INDEX)
         if special:
             assert len(encoded) + 2 <= pad_len
             padded[1 : len(encoded) + 1] = encoded
-            padded[0] = self.go_tok
-            padded[len(encoded) + 1] = self.stop_tok
+            padded[0] = self.GO_INDEX
+            padded[len(encoded) + 1] = self.STOP_INDEX
         else:
             assert len(encoded) <= pad_len
             padded[: len(encoded)] = encoded
@@ -318,17 +334,8 @@ class BaseDataset(D.Dataset):
         """
         return len(self._samples)
 
-    def __getitem__(self, index: int) -> BatchedSample:
-        """Retrieve a single sample from the dataset as indexed.
-
-        Parameters
-        ----------
-        index: int
-            The index of the sample to retrieve.
-        """
-        sample = self._samples[index]
-
-        img = Image.open(sample.fname).convert("RGB")
+    def _load_image(self, fname: str):
+        img = Image.open(fname).convert("RGB")
 
         og_shape = img.size
         img_width, img_height = og_shape
@@ -355,8 +362,22 @@ class BaseDataset(D.Dataset):
         padded_img.paste(img, (0, 0))
         padded_img = self._aug_pipeline(padded_img)
 
+        return padded_img, og_shape, new_shape
+
+    def __getitem__(self, index: int) -> BatchedSample:
+        """Retrieve a single sample from the dataset as indexed.
+
+        Parameters
+        ----------
+        index: int
+            The index of the sample to retrieve.
+        """
+        sample = self._samples[index]
+
+        img, og_shape, new_shape = self._load_image(sample.fname)
+
         return BatchedSample(
-            img=padded_img,
+            img=img,
             gt=sample.gt,
             gt_len=sample.gt_len,  # (un)normalised_coords,
             fname=sample.fname,
