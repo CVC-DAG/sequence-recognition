@@ -86,6 +86,7 @@ class RNNSeq2Seq(BaseModel):
         lengths = batch.curr_shape[0]  # This need not be on GPU
 
         output = self.forward(images, transcript, lengths)
+        output = output.permute(1, 0)
         return ModelOutput(output=output)
 
     def compute_loss(
@@ -109,7 +110,7 @@ class RNNSeq2Seq(BaseModel):
         """
         output = output.output
         output = output.reshape(-1, output.shape[-1])
-        transcript = batch.gt.to(device).permute(1, 0)[1:].reshape(-1)
+        transcript = batch.gt.to(device)[1:].reshape(-1)
 
         return self.loss(output, transcript)
 
@@ -484,6 +485,7 @@ class KangSeq2Seq2Head(RNNSeq2Seq):
         lengths = batch.curr_shape[0].cpu()
 
         prm_output, sec_output = self.forward(images, transcript, additional, lengths)
+        prm_output, sec_output = prm_output.permute(1, 0), sec_output.permute(1, 0)
         return Seq2Seq2HeadOutput(output=prm_output, sec_output=sec_output)
 
     def compute_loss(
@@ -511,8 +513,8 @@ class KangSeq2Seq2Head(RNNSeq2Seq):
         primary_output = output.output.reshape(-1, output.output.shape[-1])
         secondary_output = output.sec_output.reshape(-1, output.sec_output.shape[-1])
 
-        primary_transcript = batch.gt.to(device).permute(1, 0)[1:].reshape(-1)
-        secondary_transcript = batch.gt_sec.to(device).permute(1, 0)[1:].reshape(-1)
+        primary_transcript = batch.gt.to(device)[1:].reshape(-1)
+        secondary_transcript = batch.gt_sec.to(device)[1:].reshape(-1)
 
         primary_loss = self.loss(primary_output, primary_transcript)
         secondary_loss = self.loss(secondary_output, secondary_transcript)
