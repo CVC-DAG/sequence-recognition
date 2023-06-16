@@ -110,7 +110,7 @@ class RNNSeq2Seq(BaseModel):
         """
         output = output.output
         output = output.reshape(-1, output.shape[-1])
-        transcript = batch.gt.to(device)[1:].reshape(-1)
+        transcript = batch.gt.to(device)[:, 1:].reshape(-1)
 
         return self.loss(output, transcript)
 
@@ -515,8 +515,8 @@ class KangSeq2Seq2Head(RNNSeq2Seq):
         primary_output = output.output.reshape(-1, output.output.shape[-1])
         secondary_output = output.sec_output.reshape(-1, output.sec_output.shape[-1])
 
-        primary_transcript = batch.gt.to(device)[1:].reshape(-1)
-        secondary_transcript = batch.gt_sec.to(device)[1:].reshape(-1)
+        primary_transcript = batch.gt.to(device)[:, 1:].reshape(-1)
+        secondary_transcript = batch.gt_sec.to(device)[:, 1:].reshape(-1)
 
         primary_loss = self.loss(primary_output, primary_transcript)
         secondary_loss = self.loss(secondary_output, secondary_transcript)
