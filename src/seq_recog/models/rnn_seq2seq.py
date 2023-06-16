@@ -86,7 +86,7 @@ class RNNSeq2Seq(BaseModel):
         lengths = batch.curr_shape[0]  # This need not be on GPU
 
         output = self.forward(images, transcript, lengths)
-        output = output.permute(1, 0)
+        output = output.permute(1, 0, 2)
         return ModelOutput(output=output)
 
     def compute_loss(
@@ -485,7 +485,9 @@ class KangSeq2Seq2Head(RNNSeq2Seq):
         lengths = batch.curr_shape[0].cpu()
 
         prm_output, sec_output = self.forward(images, transcript, additional, lengths)
-        prm_output, sec_output = prm_output.permute(1, 0), sec_output.permute(1, 0)
+        prm_output, sec_output = prm_output.permute(1, 0, 2), sec_output.permute(
+            1, 0, 2
+        )
         return Seq2Seq2HeadOutput(output=prm_output, sec_output=sec_output)
 
     def compute_loss(
