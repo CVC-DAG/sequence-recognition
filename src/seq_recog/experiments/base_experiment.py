@@ -186,6 +186,7 @@ class Experiment(ABC):
             config=cfg.dict(),
             mode=cfg.wandb_mode,
             save_code=True,
+            notes=cfg.description,
         )
 
         cfg.dirs.results_dir = Path(cfg.dirs.results_dir) / wandb.run.name

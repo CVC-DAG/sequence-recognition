@@ -2,6 +2,7 @@
 
 import math
 import json
+import time
 from collections import deque
 from pathlib import Path
 from shutil import rmtree
@@ -129,6 +130,12 @@ class BaseTrainer:
 
         self.curr_name = lambda epoch: f"weights_e{epoch:04}.pth"
         self.best_fname = self.save_path / "weights_BEST.pth"
+
+        wandb.watch(
+            self.model,
+            log="gradients",
+            log_graph=True,
+        )
 
     @staticmethod
     def _create_optimizer(
@@ -310,7 +317,7 @@ class BaseTrainer:
         """Perform training on the model given the trainer configuration."""
         summary(self.model)
         result_dirs = deque()
-
+        last_log_time = 0
         for epoch in range(1, self.config.max_epochs + 1):
             self.model.train()
 
@@ -355,13 +362,15 @@ class BaseTrainer:
                 if self.cosann_sched:
                     self.cosann_sched.step()
 
-                wandb.log(
-                    {
-                        "lr": self._get_lr(self.optimizer),
-                        "train_loss": float(batch_loss),
-                    },
-                    step=self.train_iters,
-                )
+                if time.time() - last_log_time > 10:
+                    wandb.log(
+                        {
+                            "lr": self._get_lr(self.optimizer),
+                            "train_batch_loss": float(batch_loss),
+                        },
+                        step=self.train_iters,
+                    )
+                    last_log_time = time.time()
 
                 output = output.numpy()
                 self.curr_logger.process_and_log(output, batch)
