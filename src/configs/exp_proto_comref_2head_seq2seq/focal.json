@@ -12,7 +12,7 @@
         "sec_vocab_data": "vocab_group.json"
     },
     "data": {
-        "target_shape": [800, 256],
+        "target_shape": [800, 128],
         "target_seqlen": 64,
         "aug_pipeline": null,
         "stretch": null,
