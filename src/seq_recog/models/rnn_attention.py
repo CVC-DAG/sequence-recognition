@@ -1,3 +1,4 @@
+from torch.autograd import Variable
 from torch import nn
 from torch import TensorType
 import torch
@@ -70,21 +71,25 @@ class LocationAttention(nn.Module):
         attn_energy = self.score(hidden, encoder_output, prev_attention)
         # (batch, seqlen)
 
-        batch, seqlen, hidden = encoder_output.shape
-        enc_len = enc_len.to(encoder_output.device)
-        indices = (
-            torch.arange(seqlen)
-            .unsqueeze(0)
-            .expand(batch, -1)
-            .to(encoder_output.device)
-        )
-        attn_energy = self.sigma(
-            torch.where(
-                indices < enc_len.unsqueeze(1),
-                attn_energy,
-                self.minus_infty,
-            )
-        )
+        # batch, seqlen, hidden = encoder_output.shape
+        # enc_len = enc_len.to(encoder_output.device)
+        # indices = (
+        #     torch.arange(seqlen)
+        #     .unsqueeze(0)
+        #     .expand(batch, -1)
+        #     .to(encoder_output.device)
+        # )
+        # attn_energy = self.sigma(
+        #     torch.where(
+        #         indices < enc_len.unsqueeze(1),
+        #         attn_energy,
+        #         self.minus_infty,
+        #     )
+        # )
+
+        attn_weight = Variable(torch.zeros(attn_energy.shape)).cuda()
+        for i, le in enumerate(enc_len):
+            attn_weight[i, :le] = self.sigma(attn_energy[i, :le])
         return attn_energy
 
     def score(
@@ -117,7 +122,7 @@ class LocationAttention(nn.Module):
         """
         hidden = hidden.permute(1, 0, 2)
 
-        hidden = hidden.sum(dim=1)
+        hidden = hidden.mean(dim=1)
         hidden_attn = self.hidden_proj(hidden).unsqueeze(1)
         # (batch, 1, hidden)
 
