@@ -89,6 +89,8 @@ class Experiment(ABC):
                 cfg["dirs"]["base_data_dir"] = args.base_data_dir
             if args.results_dir is not None:
                 cfg["dirs"]["results_dir"] = args.results_dir
+            if args.batch_size is not None:
+                cfg["train"]["batch_size"] = args.batch_size
         cfg = config_type(**cfg)
 
         return cfg
@@ -163,6 +165,14 @@ class Experiment(ABC):
             metavar="<PATH TO RESULTS FOLDER>",
             help="Override the results directory.",
             type=str,
+            default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--batch_size",
+            metavar="<BATCH SIZE VALUE>",
+            help="Override the batch size for training.",
+            type=int,
             default=None,
             required=False,
         )

@@ -43,7 +43,7 @@ class TransformerSeq2Seq(BaseModel):
             requires_grad=False,
         )
 
-        if model_config.loss == "focal":
+        if model_config.loss_function == "focal":
             self.loss = SequenceFocalLoss(
                 gamma=model_config.focal_loss_gamma,
                 label_smoothing=model_config.label_smoothing,
@@ -62,7 +62,7 @@ class TransformerSeq2Seq(BaseModel):
 
         Parameters
         ----------
-        batch_in: BatchedSample
+        batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
         device: torch.device
             Device where the training is happening in order to move tensors.
@@ -85,7 +85,7 @@ class TransformerSeq2Seq(BaseModel):
 
         Parameters
         ----------
-        batch_in: BatchedSample
+        batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
         output: torch.Tensor
             The output of the model for the input batch.
@@ -103,7 +103,7 @@ class TransformerSeq2Seq(BaseModel):
         return self.loss(output, transcript)
 
     @staticmethod
-    def _get_tgt_mask(seqlen: int) -> TensorType:
+    def _get_tgt_mask(seqlen: int) -> torch.FloatTensor:
         mask = torch.ones(seqlen - 1, seqlen - 1)
         mask = (torch.triu(mask) == 1).transpose(0, 1).float()
         mask = mask.masked_fill(mask == 0, float("-inf"))
@@ -132,7 +132,7 @@ class ViTSeq2SeqTransformerConfig(TransformerSeq2SeqConfig):
 
 
 @ModelZoo.register_model
-class ViTSeq2SeqTransformer(nn.Module):
+class ViTSeq2SeqTransformer(BaseModel):
     """Implements a full seq2seq transformer using vit_pytorch."""
 
     MODEL_CONFIG = ViTSeq2SeqTransformerConfig
@@ -188,7 +188,7 @@ class ViTSeq2SeqTransformer(nn.Module):
         self.pos_encoding = PositionalEncoding(
             model_config.model_dim, model_config.emb_dropout
         )
-        self.max_inference_len = data_config.max_inference_len
+        self.max_inference_len = data_config.target_seqlen
         self.vocab_size = model_config.output_units
         self.norm = nn.LayerNorm(model_config.model_dim)
 
@@ -207,16 +207,19 @@ class ViTSeq2SeqTransformer(nn.Module):
         self.linear = nn.Linear(model_config.model_dim, model_config.output_units)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x, y) -> Tensor:  # x: Batch,
+    def forward(self, x, y) -> torch.FloatTensor:
         _, x = self.encoder(x)  # Batch, Tok + 1, Dim
 
         if self.training:
-            y = self.embedder(y)  # Batch, Seqlen, Dim
-            y = self.pos_encoding(y)  # Batch, Seqlen, Dim
+            yemb = self.embedder(y)  # Batch, Seqlen, Dim
+            yemb = self.pos_encoding(yemb)  # Batch, Seqlen, Dim
 
             # Embed the target sequence and positionally encode it
             x = self.decoder(
-                y, x, tgt_mask=self.tgt_mask, tgt_key_padding_mask=pad_mask
+                yemb,
+                x,
+                tgt_mask=self.tgt_mask,
+                tgt_key_padding_mask=y[:, 1:] == BaseVocab.PAD_INDEX,
             )
             x = self.linear(x)  # Batch, Seqlen, Class
             # x = self.softmax(x)
