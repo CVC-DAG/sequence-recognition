@@ -52,9 +52,7 @@ class VggRNNEncoder(nn.Module):
 
     @staticmethod
     def _sum_directions(x: torch.FloatTensor) -> torch.FloatTensor:
-        seqlen, batch, _ = x.shape
-        x = x.view(seqlen, batch, 2, -1)
-        return x.sum(dim=-2)
+        return x[:, :, : x.shape[-1] // 2] + x[:, :, x.shape[-1] // 2 :]
 
     def forward(
         self,

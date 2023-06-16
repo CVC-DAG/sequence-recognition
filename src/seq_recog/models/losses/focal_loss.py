@@ -49,7 +49,7 @@ class SequenceFocalLoss(nn.Module):
         if prob_computation == "sigmoid":
             self.probability = nn.Sigmoid()
         else:
-            self.probability = nn.Softmax()
+            self.probability = nn.Softmax(dim=-1)
 
     def forward(
         self,
