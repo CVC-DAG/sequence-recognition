@@ -379,6 +379,7 @@ class BaseDataset(D.Dataset):
         return BatchedSample(
             img=img,
             gt=sample.gt,
+            gt_sec=np.array([]),
             gt_len=sample.gt_len,  # (un)normalised_coords,
             fname=sample.fname,
             og_shape=og_shape,

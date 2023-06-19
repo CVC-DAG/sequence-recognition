@@ -14,7 +14,7 @@ from .misc import TokenEmbedding, PositionalEncoding
 
 from .model_zoo import ModelZoo
 from .losses.focal_loss import SequenceFocalLoss
-from .base_model import BaseModel
+from .base_model import BaseModel, ModelOutput
 from .base_model import BaseModelConfig
 from ..data.base_dataset import BatchedSample, BaseDataConfig, BaseVocab
 
@@ -48,18 +48,23 @@ class TransformerSeq2Seq(BaseModel):
         if model_config.loss_function == "focal":
             self.loss = SequenceFocalLoss(
                 gamma=model_config.focal_loss_gamma,
+                alpha=model_config.focal_loss_alpha,
                 label_smoothing=model_config.label_smoothing,
                 ignore_index=BaseVocab.PAD_INDEX,
-                class_weights=torch.tensor(model_config.loss_weights),
+                class_weights=torch.tensor(model_config.loss_weights)
+                if model_config.loss_weights is not None
+                else None,
             )
         else:
             self.loss = nn.CrossEntropyLoss(
-                weight=torch.tensor(model_config.loss_weights),
+                weight=torch.tensor(model_config.loss_weights)
+                if model_config.loss_weights is not None
+                else None,
                 ignore_index=BaseVocab.PAD_INDEX,
                 label_smoothing=model_config.label_smoothing,
             )
 
-    def compute_batch(self, batch: BatchedSample, device: torch.device) -> torch.Tensor:
+    def compute_batch(self, batch: BatchedSample, device: torch.device) -> ModelOutput:
         """Generate the model's output for a single input batch.
 
         Parameters
@@ -78,10 +83,10 @@ class TransformerSeq2Seq(BaseModel):
         transcript = batch.gt.to(device)
 
         output = self.forward(images, transcript)
-        return output
+        return ModelOutput(output=output)
 
     def compute_loss(
-        self, batch: BatchedSample, output: torch.Tensor, device: torch.device
+        self, batch: BatchedSample, output: ModelOutput, device: torch.device
     ) -> torch.float32:
         """Generate the model's loss for a single input batch and output.
 
@@ -89,8 +94,9 @@ class TransformerSeq2Seq(BaseModel):
         ----------
         batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
-        output: torch.Tensor
-            The output of the model for the input batch.
+        output:ModelOutput
+            The output of the model for the input batch encapsulated in a
+            ModelOutput class.
         device: torch.device
             Device where the training is happening in order to move tensors.
 
@@ -99,8 +105,9 @@ class TransformerSeq2Seq(BaseModel):
         torch.float32
             The model's loss for the given input.
         """
+        output = output.output
         output = output.view(-1, output.shape[-1])
-        transcript = batch.gt.to(device)[:, 1:, :].view(-1)
+        transcript = batch.gt.to(device)[:, 1:].reshape(-1)
 
         return self.loss(output, transcript)
 
@@ -126,7 +133,7 @@ class ViTSeq2SeqTransformerConfig(TransformerSeq2SeqConfig):
     mlp_dim: int
     dropout: float
     emb_dropout: float
-    pretrained_backbone: str
+    pretrained_backbone: Optional[str]
     dec_heads: int
     norm_first: bool
     activation: str
@@ -134,7 +141,7 @@ class ViTSeq2SeqTransformerConfig(TransformerSeq2SeqConfig):
 
 
 @ModelZoo.register_model
-class ViTSeq2SeqTransformer(BaseModel):
+class ViTSeq2SeqTransformer(TransformerSeq2Seq):
     """Implements a full seq2seq transformer using vit_pytorch."""
 
     MODEL_CONFIG = ViTSeq2SeqTransformerConfig
@@ -213,7 +220,7 @@ class ViTSeq2SeqTransformer(BaseModel):
         _, x = self.encoder(x)  # Batch, Tok + 1, Dim
 
         if self.training:
-            yemb = self.embedder(y)  # Batch, Seqlen, Dim
+            yemb = self.embedder(y[:, :-1])  # Batch, Seqlen, Dim
             yemb = self.pos_encoding(yemb)  # Batch, Seqlen, Dim
 
             # Embed the target sequence and positionally encode it

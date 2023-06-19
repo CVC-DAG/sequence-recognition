@@ -59,7 +59,7 @@ class ComrefTformerExperiment(Experiment):
         self.valid_metric = text.Levenshtein(self.vocab)
 
         # Model and training-related
-        self.model = TransformerSeq2Seq(self.cfg.model, self.cfg.data)
+        self.model = ViTSeq2SeqTransformer(self.cfg.model, self.cfg.data)
         self.validator = BaseValidator(
             self.valid_data,
             self.valid_formatter,
@@ -68,7 +68,7 @@ class ComrefTformerExperiment(Experiment):
             self.cfg.train.batch_size,
             0 if self.debug else self.cfg.train.workers,
             "valid",
-            SimpleLogger,
+            AsyncLogger,
         )
         self.tester = BaseValidator(
             self.test_data,
@@ -78,7 +78,7 @@ class ComrefTformerExperiment(Experiment):
             self.cfg.train.batch_size,
             0 if self.debug else self.cfg.train.workers,
             "test",
-            SimpleLogger,
+            AsyncLogger,
         )
 
         self.trainer = BaseTrainer(
@@ -90,7 +90,7 @@ class ComrefTformerExperiment(Experiment):
             self.training_formatter,
             self.training_metric,
             None,
-            SimpleLogger,
+            AsyncLogger,
         )
 
 
