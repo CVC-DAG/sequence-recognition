@@ -44,13 +44,14 @@ class Levenshtein(BaseMetric):
 
         for model_out, gt, ln in zip(output, batch.gt, batch.gt_len):
             text = model_out["text"]
+            gt = gt.numpy()
             if self.padded:
                 text = self.vocab.unpad(text)
                 gt = self.vocab.unpad(gt)
             else:
                 ln = ln.item()
                 gt = gt[:ln]
-            lev = levenshtein(model_out["text"], gt)[0]
+            lev = levenshtein(text, gt)[0]
             out.append({"levenshtein": lev})
 
         return out

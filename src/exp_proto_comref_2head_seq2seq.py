@@ -56,8 +56,8 @@ class ProtoComref2HeadSeq2SeqExperiment(Experiment):
         self.valid_formatter = seq2seq_formatters.GreedyTextDecoder()
 
         # Metrics
-        self.training_metric = text.Levenshtein(self.prm_vocab)
-        self.valid_metric = text.Levenshtein(self.prm_vocab)
+        self.training_metric = text.Levenshtein(self.prm_vocab, padded=True)
+        self.valid_metric = text.Levenshtein(self.prm_vocab, padded=True)
 
         # Model and training-related
         self.model = KangSeq2Seq2Head(self.cfg.model, self.cfg.data)

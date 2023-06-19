@@ -2,6 +2,7 @@
 
 import math
 import json
+import shutil
 import time
 from collections import deque
 from pathlib import Path
@@ -130,6 +131,7 @@ class BaseTrainer:
 
         self.curr_name = lambda epoch: f"weights_e{epoch:04}.pth"
         self.best_fname = self.save_path / "weights_BEST.pth"
+        self.best_valid = self.save_path / "best_eval"
 
         wandb.watch(
             self.model,
@@ -402,5 +404,9 @@ class BaseTrainer:
                     self.best_epoch = epoch
 
                     self.model.save_weights(str(self.best_fname))
+                    if self.best_valid.exists():
+                        rmtree(self.best_valid)
+                    shutil.move(val_folder, self.best_valid)
+
                 else:
                     rmtree(val_folder)
