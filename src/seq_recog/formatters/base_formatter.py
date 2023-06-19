@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 import torch
 
 from ..data.base_dataset import BatchedSample
+from ..models.base_model import ModelOutput
 
 
 class BaseFormatter(ABC):
@@ -15,13 +16,13 @@ class BaseFormatter(ABC):
 
     @abstractmethod
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Convert a model output to any other formatting.
 
         Parameters
         ----------
-        model_output: torch.Tensor
+        model_output: ModelOutput
             The output of a model.
         batch: BatchedSample
             Batch information if needed.

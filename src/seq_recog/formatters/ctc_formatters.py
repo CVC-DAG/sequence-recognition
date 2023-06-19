@@ -8,6 +8,7 @@ import torch
 
 from .base_formatter import BaseFormatter
 from ..data.base_dataset import BatchedSample, BaseVocab
+from ..models.base_model import ModelOutput
 from ..utils.decoding import PrefixTree, Prediction
 
 
@@ -31,13 +32,13 @@ class OptimalCoordinateDecoder(BaseFormatter):
         self.vocab = vocab
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Convert a model output to a sequence of coordinate predictions.
 
         Parameters
         ----------
-        model_output: torch.Tensor
+        model_output: ModelOutput
             The output of a model.
         batch: BatchedSample
             Batch information if needed.
@@ -48,6 +49,7 @@ class OptimalCoordinateDecoder(BaseFormatter):
             A List of Prediction objects with character coordinates.
         """
         outputs = []
+        model_output = model_output.output
         model_output = model_output.transpose((1, 0, 2))
         batch_size, columns, classes = model_output.shape
         target_shape = batch.img.shape[-1]
@@ -88,15 +90,16 @@ class GreedyTextDecoder(BaseFormatter):
         self._confidences = confidences
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, ArrayLike]]:
         """Convert a model output to a token sequence.
 
         Parameters
         ----------
-        model_output: torch.Tensor
-            The output of a CTC model. Should be a L x B x C matrix, where L is the
-            sequence length, B is the batch size and C is the number of classes.
+        model_output: ModelOutput
+            The output of a CTC model. Should contain an output with shape L x B x C,
+            where L is the sequence length, B is the batch size and C is the number of
+            classes.
         batch: BatchedSample
             Batch information.
 
@@ -106,6 +109,7 @@ class GreedyTextDecoder(BaseFormatter):
             A List of sequences of tokens corresponding to the decoded output and the
             output confidences encapsulated within a dictionary.
         """
+        model_output = model_output.output
         model_output = model_output.transpose((1, 0, 2))
         indices = model_output.argmax(axis=-1)
         output = []
@@ -129,5 +133,5 @@ class GreedyTextDecoder(BaseFormatter):
             if self._confidences:
                 output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: confs})
             else:
-                output.append({self.KEY_TEXT: decoded})
+                output.append({self.KEY_TEXT: decoded, self.KEY_TEXT_CONF: None})
         return output

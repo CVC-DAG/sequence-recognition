@@ -364,13 +364,13 @@ def levenshtein(
     matrix = []
 
     if len(target) == 0:
-        return len(source)
+        return len(source), np.array([])
 
     # We call tuple() to force strings to be used as sequences
-    # if isinstance(source, str):
-    source = np.array(tuple(source))
-    # if isinstance(source, str):
-    target = np.array(tuple(target))
+    if not (isinstance(source, np.ndarray)):
+        source = np.array(tuple(source))
+    if not (isinstance(target, np.ndarray)):
+        target = np.array(tuple(target))
 
     previous_row = np.arange(target.size + 1)
 
@@ -500,7 +500,7 @@ def find_gaps(output: ArrayLike) -> List[Tuple[int, int]]:
     Returns
     -------
     List[Tuple[int, int]]
-        A list of tuples representing the starting and ending indices of an invalid 
+        A list of tuples representing the starting and ending indices of an invalid
         block.
     """
     invalid = np.all(output == -1, axis=1)
@@ -532,7 +532,7 @@ def remove_gaps(output: ArrayLike, gaps: List[Tuple[int, int]]) -> ArrayLike:
     output: ArrayLike
         Coordinate prediction in N x 2 format.
     gaps: List[Tuple[int, int]]
-        A list of tuples representing the starting and ending indices of an invalid 
+        A list of tuples representing the starting and ending indices of an invalid
         block.
 
     Returns

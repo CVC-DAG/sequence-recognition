@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Seq2Seq",
+            "type": "python",
+            "request": "launch",
+            "program": "src/exp_comref_seq2seq.py",
+            "args": [
+                "--config_path",
+                "/home/ptorras/Documents/Repos/seq-alignment/src/configs/exp_comref_seq2seq/debug.json",
+                "--debug"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Exp Baro Recog",
+            "type": "python",
+            "request": "launch",
+            "program": "src/exp_baro_recog.py",
+            "args": [
+                "--config_path",
+                "/home/ptorras/Documents/Repos/seq-alignment/src/configs/exp_baro/baro_hip_dag001_copiale.json",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Debug Exp Transformer",
+            "type": "python",
+            "request": "launch",
+            "program": "src/exp_cnn_tformer.py",
+            "args": [
+                "--config_path",
+                "/home/ptorras/Documents/Repos/seq-alignment/src/configs/exp_cnn_tformer/comref_basic_local.json",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

@@ -15,6 +15,11 @@ PIPELINES = {
         T.RandomEqualize(),
         T.RandomPerspective(fill=255),
     ],
+    "basic_comref": [
+        T.RandomPerspective(fill=255),
+        T.ColorJitter(0.2, 0.0, 0.2, 0.4),
+        T.GaussianBlur(5),
+    ],
     None: [],
 }
 

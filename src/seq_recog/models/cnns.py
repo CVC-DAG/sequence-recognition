@@ -88,6 +88,8 @@ def create_vgg(
         the default VGG.
     pretrained: bool
         Whether to use pretrained weights or not.
+    keep_maxpool: bool
+        Whether or not to keep the last max pooling layer on the model.
 
     Returns
     -------

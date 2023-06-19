@@ -3,10 +3,9 @@
 from typing import Any, Dict, List
 from warnings import warn
 
-import torch
-
 from .base_formatter import BaseFormatter
 from ..data.base_dataset import BatchedSample
+from ..models.base_model import ModelOutput
 
 
 class Compose(BaseFormatter):
@@ -31,13 +30,13 @@ class Compose(BaseFormatter):
             )
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Compute multiple formatters between a set of predictions and the GT.
 
         Parameters
         ----------
-        model_output: torch.Tensor
+        model_output: ModelOutput
             The output of a model.
         batch: BatchedSample
             Batch information if needed.
@@ -76,13 +75,13 @@ class AddFilename(BaseFormatter):
     KEYS = [KEY_FILENAME]
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Provide the filename to the formatted dict.
 
         Parameters
         ----------
-        model_output: torch.Tensor
+        model_output: ModelOutput
             The output of a model.
         batch: BatchedSample
             Batch information if needed. Must contain a filename field with a Path.
@@ -103,13 +102,13 @@ class AddGroundTruthText(BaseFormatter):
     KEYS = [KEY_GT]
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Provide the filename to the formatted dict.
 
         Parameters
         ----------
-        model_output: torch.Tensor
+        model_output: ModelOutput
             The output of a model.
         batch: BatchedSample
             Batch information if needed.
@@ -130,13 +129,13 @@ class AddGroundTruthSegm(BaseFormatter):
     KEYS = [KEY_GT]
 
     def __call__(
-        self, model_output: torch.Tensor, batch: BatchedSample
+        self, model_output: ModelOutput, batch: BatchedSample
     ) -> List[Dict[str, Any]]:
         """Provide the filename to the formatted dict.
 
         Parameters
         ----------
-        model_output: torch.Tensor
+        model_output: ModelOutput
             The output of a model.
         batch: BatchedSample
             Batch information if needed.

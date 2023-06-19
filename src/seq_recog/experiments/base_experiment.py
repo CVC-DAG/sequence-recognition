@@ -1,8 +1,12 @@
 """Base experiment types and configs."""
 
 import json
+import signal
+import sys
+import threading
+import multiprocessing
 from abc import ABC, abstractmethod
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from shutil import copyfile
 from typing import Dict, Optional, Tuple, Type
@@ -34,12 +38,12 @@ class ExperimentConfig(BaseModel):
     def generate_template(cls) -> Dict:
         """Generate a config representation for the current experiment."""
 
-        def generate_subdict(tt):
+        def _generate_subdict(tt):
             output = {}
             for name, field in tt.items():
                 subt = field.type_
                 if hasattr(subt, "__fields__"):
-                    output[name] = generate_subdict(subt.__fields__)
+                    output[name] = _generate_subdict(subt.__fields__)
                 else:
                     if hasattr(subt, "__name__"):
                         output[name] = subt.__name__
@@ -49,7 +53,7 @@ class ExperimentConfig(BaseModel):
                         output[name] = str(subt)
             return output
 
-        return generate_subdict(cls.__fields__)
+        return _generate_subdict(cls.__fields__)
 
 
 class Experiment(ABC):
@@ -60,18 +64,33 @@ class Experiment(ABC):
     def __init__(self):
         """Initialise Experiment."""
         self.cfg, self.test_weights, self.debug = self.setup()
+
+        self.train_data, self.valid_data, self.test_data = None, None, None
+        self.training_formatter, self.valid_formatter = None, None
+        self.training_metric, self.valid_metric = None, None
+        self.model = None
+
+        self.trainer, self.validator, self.tester = None, None, None
+
         self.initialise_everything()
 
     @staticmethod
     def _load_configuration(
         config_path: str,
-        test: bool,
+        args: Namespace,
         config_type: Type,
     ) -> ExperimentConfig:
         path = Path(config_path)
         with open(path, "r") as f_config:
             cfg = json.load(f_config)
-            cfg["exp_name"] = path.stem + ("_test" if test else "")
+            cfg["exp_name"] = path.stem + ("_test" if args.test else "")
+
+            if args.base_data_dir is not None:
+                cfg["dirs"]["base_data_dir"] = args.base_data_dir
+            if args.results_dir is not None:
+                cfg["dirs"]["results_dir"] = args.results_dir
+            if args.batch_size is not None:
+                cfg["train"]["batch_size"] = args.batch_size
         cfg = config_type(**cfg)
 
         return cfg
@@ -100,6 +119,7 @@ class Experiment(ABC):
 
         :returns: Singleton configuration object.
         """
+        signal.signal(signal.SIGINT, self.sigint_handler)
         parser = ArgumentParser(
             description="Model training framework.",
         )
@@ -107,12 +127,14 @@ class Experiment(ABC):
         group.add_argument(
             "--config_path",
             type=str,
+            metavar="<PATH TO INPUT CONFIG JSON FILE>",
             help="Configuration path for the experiment",
             required=False,
         )
         group.add_argument(
             "--get_template",
             type=str,
+            metavar="<PATH TO OUTPUT CONFIG JSON FILE>",
             help="If and where to produce a configuration template",
             default=None,
             required=False,
@@ -130,6 +152,30 @@ class Experiment(ABC):
             action="store_true",
             required=False,
         )
+        parser.add_argument(
+            "--base_data_dir",
+            metavar="<PATH TO BASE DATA FOLDER>",
+            help="Override the base data directory.",
+            type=str,
+            default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--results_dir",
+            metavar="<PATH TO RESULTS FOLDER>",
+            help="Override the results directory.",
+            type=str,
+            default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--batch_size",
+            metavar="<BATCH SIZE VALUE>",
+            help="Override the batch size for training.",
+            type=int,
+            default=None,
+            required=False,
+        )
 
         args = parser.parse_args()
 
@@ -138,9 +184,7 @@ class Experiment(ABC):
                 json.dump(self.EXPERIMENT_CONFIG.generate_template(), f_json, indent=4)
                 quit()
 
-        cfg = self._load_configuration(
-            args.config_path, args.test is not None, self.EXPERIMENT_CONFIG
-        )
+        cfg = self._load_configuration(args.config_path, args, self.EXPERIMENT_CONFIG)
         self._setup_dirs(
             cfg.dirs,
             cfg.exp_name,
@@ -152,6 +196,7 @@ class Experiment(ABC):
             config=cfg.dict(),
             mode=cfg.wandb_mode,
             save_code=True,
+            notes=cfg.description,
         )
 
         cfg.dirs.results_dir = Path(cfg.dirs.results_dir) / wandb.run.name
@@ -163,6 +208,42 @@ class Experiment(ABC):
 
         return cfg, args.test, args.debug
 
+    def sigint_handler(
+        self,
+        signal,
+        frame,
+    ) -> None:
+        if not (
+            multiprocessing.current_process().name == "MainProcess"
+            and threading.main_thread() == threading.current_thread()
+        ):
+            return
+        """Avoid zombie processes when killing through ctrl + c."""
+        option = input(
+            "SIGINT detected. Do you want to kill the training process? [y / n]: "
+        )
+        if option == "y":
+            if self.trainer and self.trainer.curr_logger:
+                self.trainer.curr_logger.close()
+
+            if self.validator and self.validator.logger:
+                self.validator.logger.close()
+
+            if self.tester and self.tester.logger:
+                self.tester.logger.close()
+
+            option2 = input("Should test on the best weights be run? [y / n]: ")
+            if option2 != "n":
+                try:
+                    self.model.load_weights(str(self.trainer.best_fname))
+                except FileNotFoundError:
+                    print("Could not load best weights. Shutting down...")
+                    sys.exit(1)
+                self.tester.validate(self.model, 0, 0, self.trainer.device)
+            sys.exit(0)
+        else:
+            return
+
     @abstractmethod
     def initialise_everything(self) -> None:
         """Initialise all member variables for the class."""
@@ -173,5 +254,7 @@ class Experiment(ABC):
         if self.test_weights:
             self.model.load_weights(self.test_weights)
             self.tester.validate(self.model, 0, 0, self.trainer.device)
+            sys.exit(0)
         else:
             self.trainer.train()
+            sys.exit(0)

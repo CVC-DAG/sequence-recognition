@@ -32,3 +32,11 @@ class ComrefDirectoryConfig(DirectoryConfig):
 
     splits_file: str
     vocab_data: str
+
+
+class ProtoComrefDirectoryConfig(DirectoryConfig):
+    """Directories for COMREF databases."""
+
+    splits_file: str
+    prm_vocab_data: str
+    sec_vocab_data: str

@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from numpy.typing import ArrayLike
 
-from ..data.generic_decrypt import BatchedSample
+from ..data.base_dataset import BatchedSample
 
 
 class BaseMetric(ABC):
@@ -18,20 +18,20 @@ class BaseMetric(ABC):
     @abstractmethod
     def __call__(
         self, output: List[Dict[str, Any]], batch: BatchedSample
-    ) -> Dict[str, ArrayLike]:
+    ) -> List[Dict[str, ArrayLike]]:
         """Compute the difference between a set of predictions and the GT.
 
-        Parameters
-        ----------
-        model_output: List[Dict[str, Any]]
-            The output of a model after being properly formatted.
-        batch: BatchedSample
-            Batch information if needed.
+         Parameters
+         ----------
+         output: List[Dict[str, Any]]
+             The output of a model after being properly formatted.
+         batch: BatchedSample
+             Batch information if needed.
 
-        Returns
-        -------
-        Dict[str, ArrayLike]
-            A value array that measures how far from the GT is each prediction.
+         Returns
+         -------
+        List[Dict[str, ArrayLike]]
+             A value array that measures how far from the GT is each prediction.
         """
         raise NotImplementedError
 
@@ -47,7 +47,7 @@ class BaseMetric(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def aggregate(self, metrics: Dict[str, ArrayLike]) -> Dict[str, Any]:
+    def aggregate(self, metrics: List[Dict[str, ArrayLike]]) -> List[Dict[str, Any]]:
         """Aggregate a set of predictions from the given metric.
 
         Parameters

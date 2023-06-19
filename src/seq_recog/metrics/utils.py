@@ -41,7 +41,7 @@ class Compose(BaseMetric):
 
     def __call__(
         self, model_output: List[Dict[str, Any]], batch: BatchedSample
-    ) -> Dict[str, ArrayLike]:
+    ) -> List[Dict[str, ArrayLike]]:
         """Compute multiple metrics between a set of predictions and the GT.
 
         Parameters
@@ -71,7 +71,7 @@ class Compose(BaseMetric):
         """Return whether the first metric is maximising or not."""
         return self.metrics[0].maximise()
 
-    def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
+    def aggregate(self, metrics: List[Dict[str, ArrayLike]]) -> Dict[str, Any]:
         """Aggregate a set of predictions to return the average edit distance.
 
         Parameters

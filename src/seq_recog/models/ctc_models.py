@@ -7,7 +7,7 @@ import numpy as np
 from vit_pytorch import ViT
 from vit_pytorch.extractor import Extractor
 
-from .base_model import BaseModel as BaseInferenceModel, BaseModelConfig
+from .base_model import BaseModel as BaseInferenceModel, BaseModelConfig, ModelOutput
 from .misc import PositionalEncoding
 from .model_zoo import ModelZoo
 from .cnns import (
@@ -21,48 +21,62 @@ from .cnns import (
 from ..data.base_dataset import BaseDataConfig, BatchedSample
 
 
+class CTCModelConfig(BaseModelConfig):
+    """Shared configuration for CTC Models."""
+
+    ...
+
+
 class CTCModel(BaseInferenceModel):
     """Model that uses a CTC loss."""
 
-    def __init__(self) -> None:
+    MODEL_CONFIG = CTCModelConfig
+
+    def __init__(
+        self, model_config: CTCModelConfig, data_config: BaseDataConfig
+    ) -> None:
         """Construct a model with a CTC Loss."""
-        super().__init__()
+        super().__init__(model_config, data_config)
         self.loss = nn.CTCLoss()
 
-    def compute_batch(self, batch: BatchedSample, device: torch.device) -> torch.Tensor:
+    def compute_batch(self, batch: BatchedSample, device: torch.device) -> ModelOutput:
         """Generate the model's output for a single input batch.
 
         Parameters
         ----------
-        batch_in: BatchedSample
-            A model input batch encapsulated in a BatchedSample named tuple.
-
+        batch: BatchedSample
+            A model input batch encapsulated in a BatchedSample object.
+        device: torch.device
+            What device the model is being trained on.
         Returns
         -------
-        output: torch.Tensor
+        output: ModelOutput
             The output of the model for the input batch.
         """
         output = self(batch.img.to(device))
 
-        return output
+        return ModelOutput(output=output)
 
     def compute_loss(
-        self, batch: BatchedSample, output: torch.Tensor, device: torch.device
+        self, batch: BatchedSample, output: ModelOutput, device: torch.device
     ) -> torch.float32:
         """Generate the model's loss for a single input batch and output.
 
         Parameters
         ----------
-        batch_in: BatchedSample
+        batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
-        output: torch.Tensor
+        output: ModelOutput
             The output of the model for the input batch.
+        device: torch.device
+            Device where the model is being trained in.
 
         Returns
         -------
         torch.float32
             The model's loss for the given input.
         """
+        output = output.output
         columns = output.shape[0]
         target_shape = batch.img[0].shape[-1]
         batch_lens = batch.gt_len.numpy()
@@ -80,7 +94,7 @@ class CTCModel(BaseInferenceModel):
         return batch_loss
 
 
-class FullyConvCTCConfig(BaseModelConfig):
+class FullyConvCTCConfig(CTCModelConfig):
     """Configuration for a Fully Convolutional CTC Model."""
 
     width_upsampling: int
@@ -98,18 +112,20 @@ class FullyConvCTC(CTCModel):
     MODEL_CONFIG = FullyConvCTCConfig
 
     def __init__(
-        self, model_config: FullyConvCTCConfig, data_config: BaseDataConfig
+        self,
+        model_config: FullyConvCTCConfig,
+        data_config: BaseDataConfig,
     ) -> None:
         """Initialise FullyConv model from parameters.
 
         Parameters
         ----------
-        config: FullyConvCTCConfig
+        model_config: FullyConvCTCConfig
             Configuration object for the model.
         data_config: BaseDataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config, data_config)
 
         self._model_config = model_config
         self._data_config = data_config
@@ -135,7 +151,7 @@ class FullyConvCTC(CTCModel):
         if model_config.model_weights:
             self.load_weights(model_config.model_weights)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
         """Compute the transcription of the input batch images x.
 
         Parameters
@@ -165,40 +181,8 @@ class FullyConvCTC(CTCModel):
 
         return y
 
-    def compute_batch(self, batch: BatchedSample) -> torch.Tensor:
-        """Generate the model's output for a single input batch.
 
-        Parameters
-        ----------
-        batch_in: BatchedSample
-            A model input batch encapsulated in a BatchedSample named tuple.
-
-        Returns
-        -------
-        output: torch.Tensor
-            The output of the model for the input batch.
-        """
-        raise NotImplementedError
-
-    def compute_loss(self, batch: BatchedSample, output: torch.Tensor) -> torch.float32:
-        """Generate the model's loss for a single input batch and output.
-
-        Parameters
-        ----------
-        batch_in: BatchedSample
-            A model input batch encapsulated in a BatchedSample named tuple.
-        output: torch.Tensor
-            The output of the model for the input batch.
-
-        Returns
-        -------
-        torch.float32
-            The model's loss for the given input.
-        """
-        raise NotImplementedError
-
-
-class BaroCRNNConfig(BaseModelConfig):
+class BaroCRNNConfig(CTCModelConfig):
     """Configuration for the Baró CTC Model."""
 
     lstm_hidden_size: int
@@ -221,12 +205,12 @@ class BaroCRNN(CTCModel):
 
         Parameters
         ----------
-        config: BaroCRNNConfig
+        model_config: BaroCRNNConfig
             Configuration object for the model.
         data_config: BaseDataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config, data_config)
 
         self.model_config = model_config
         self.data_config = data_config
@@ -249,7 +233,7 @@ class BaroCRNN(CTCModel):
         if model_config.model_weights:
             self.load_weights(model_config.model_weights)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x) -> torch.FloatTensor:
         """Compute the transcription of the input batch images x.
 
         Parameters
@@ -285,7 +269,7 @@ class BaroCRNN(CTCModel):
         return x
 
 
-class ResnetCRNNConfig(BaseModelConfig):
+class ResnetCRNNConfig(CTCModelConfig):
     """Configuration for the Baró CTC Model."""
 
     resnet_type: int
@@ -311,12 +295,12 @@ class ResnetCRNN(CTCModel):
 
         Parameters
         ----------
-        config: ResnetCRNNConfig
+        model_config: ResnetCRNNConfig
             Configuration object for the model.
         data_config: BaseDataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config, data_config)
 
         self.model_config = model_config
         self.data_config = data_config
@@ -385,7 +369,7 @@ class ResnetCRNN(CTCModel):
         return x
 
 
-class VggCRNNConfig(BaseModelConfig):
+class VggCRNNConfig(CTCModelConfig):
     """Configuration for the Baró CTC Model."""
 
     vgg_type: int
@@ -405,18 +389,18 @@ class VggCRNN(CTCModel):
     MODEL_CONFIG = VggCRNNConfig
 
     def __init__(
-        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+        self, model_config: VggCRNNConfig, data_config: BaseDataConfig
     ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
-        config: ResnetCRNNConfig
+        model_config: ResnetCRNNConfig
             Configuration object for the model.
         data_config: BaseDataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config, data_config)
 
         self.model_config = model_config
         self.data_config = data_config
@@ -485,7 +469,7 @@ class VggCRNN(CTCModel):
         return x
 
 
-class CTCCNNTransformerConfig(BaseModelConfig):
+class CTCCNNTransformerConfig(CTCModelConfig):
     """Configuration for the CTC CNN Transformer model."""
 
     nheads: int
@@ -522,12 +506,12 @@ class CTCCNNTransformer(CTCModel):
 
         Parameters
         ----------
-        config: CTCCNNTransformerConfig
+        model_config: CTCCNNTransformerConfig
             Configuration object for the model.
         data_config: BaseDataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config, data_config)
 
         self.model_config = model_config
         self.data_config = data_config
@@ -589,7 +573,7 @@ class CTCCNNTransformer(CTCModel):
         return x
 
 
-class CTCVITModelConfig(BaseModelConfig):
+class CTCVITModelConfig(CTCModelConfig):
     """Configuration for the CTC CNN Transformer model."""
 
     patch_size: int
@@ -619,18 +603,18 @@ class CTCVITModel(CTCModel):
     MODEL_CONFIG = CTCVITModelConfig
 
     def __init__(
-        self, model_config: ResnetCRNNConfig, data_config: BaseDataConfig
+        self, model_config: CTCVITModelConfig, data_config: BaseDataConfig
     ) -> None:
         """Initialise Baró CRNN from parameters.
 
         Parameters
         ----------
-        config: CTCVITModelConfig
+        model_config: CTCVITModelConfig
             Configuration object for the model.
         data_config: BaseDataConfig
             Configuration for input data formatting.
         """
-        super().__init__()
+        super().__init__(model_config, data_config)
 
         self.model_config = model_config
         self.data_config = data_config

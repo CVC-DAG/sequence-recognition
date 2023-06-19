@@ -22,12 +22,12 @@ class SeqIoU(BaseMetric):
 
     def __call__(
         self, output: List[Dict[str, Any]], batch: BatchedSample
-    ) -> Dict[str, ArrayLike]:
+    ) -> List[Dict[str, ArrayLike]]:
         """Compute the IoU of the output sequences and the ground truth.
 
         Parameters
         ----------
-        model_output: List[Dict[str, Any]]
+        output: List[Dict[str, Any]]
             The output of a model after being properly formatted. Dicts must
             contain a "coords1d" key.
         batch: BatchedSample
@@ -56,7 +56,7 @@ class SeqIoU(BaseMetric):
         """
         return True
 
-    def aggregate(self, metrics: Dict[str, ArrayLike]) -> float:
+    def aggregate(self, metrics: List[Dict[str, ArrayLike]]) -> Dict[str, float]:
         """Aggregate a set of predictions to return the average seqiou.
 
         Parameters

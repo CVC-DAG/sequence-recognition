@@ -21,7 +21,20 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.register_buffer("pos_embedding", pos_embedding)
 
-    def forward(self, token_embedding: Tensor):
+    def forward(self, token_embedding: Tensor) -> Tensor:
+        """Apply positional encoding to a set of token embeddings.
+
+        Parameters
+        ----------
+        token_embedding : Tensor
+            A series of tokens of shape N x S x D, with N being the batch size, S being
+            the sequence length and D the dimension of the embedding.
+
+        Returns
+        -------
+        Tensor
+            The input tokens with positional embedding and dropout applied to them.
+        """
         return self.dropout(
             token_embedding + self.pos_embedding[: token_embedding.size(0), :]
         )

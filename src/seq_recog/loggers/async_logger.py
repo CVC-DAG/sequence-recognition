@@ -171,7 +171,7 @@ class AsyncProcessor:
         metric_q: mp.Queue,
         result_q: mp.Queue,
     ) -> None:
-        """Call the processor in order to generate results and write them to output pipes.
+        """Call the processor in order to generate results and write them to output.
 
         Parameters
         ----------

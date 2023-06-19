@@ -1,13 +1,37 @@
 """Base model class with QoL functions already implemented."""
+from __future__ import annotations
 
-from typing import Optional
+from dataclasses import dataclass, fields
+from typing import NamedTuple, Optional
 from warnings import warn
 
 from pydantic import BaseModel as ConfigBaseModel
+import numpy as np
+from numpy.typing import ArrayLike
 import torch
 from torch import nn
+from torch import TensorType
 
-from ..data.base_dataset import BatchedSample
+from ..data.base_dataset import BatchedSample, BaseDataConfig
+
+
+@dataclass
+class ModelOutput:
+    """Encapsulates the output of a model."""
+
+    output: torch.FloatTensor
+
+    def numpy(self) -> ModelOutput:
+        """Move all fields to CPU."""
+        out = {}
+        for field, value in vars(self).items():
+            try:
+                value = value.detach().cpu().numpy()
+            except AttributeError:
+                ...
+            out[field] = value
+
+        return type(self)(**out)
 
 
 class BaseModelConfig(ConfigBaseModel):
@@ -26,7 +50,9 @@ class BaseModel(nn.Module):
 
     MODEL_CONFIG = BaseModelConfig
 
-    def __init__(self) -> None:
+    def __init__(
+        self, model_config: BaseModelConfig, data_config: BaseDataConfig
+    ) -> None:
         """Initialise Model."""
         super().__init__()
 
@@ -57,20 +83,21 @@ class BaseModel(nn.Module):
         state_dict = self.state_dict()
         torch.save(state_dict, path)
 
-    def compute_batch(self, batch: BatchedSample, device: torch.device) -> torch.Tensor:
+    def compute_batch(self, batch: BatchedSample, device: torch.device) -> ModelOutput:
         """Generate the model's output for a single input batch.
 
         Parameters
         ----------
-        batch_in: BatchedSample
-            A model input batch encapsulated in a BatchedSample named tuple.
+        batch: BatchedSample
+            A model input batch encapsulated in a BatchedSample object.
         device: torch.device
             Device where the training is happening in order to move tensors.
 
         Returns
         -------
-        output: torch.Tensor
-            The output of the model for the input batch.
+        output: ModelOutput
+            The output of the model for the input batch encapsulated in a ModelOutput
+            object.
         """
         raise NotImplementedError
 
@@ -81,7 +108,7 @@ class BaseModel(nn.Module):
 
         Parameters
         ----------
-        batch_in: BatchedSample
+        batch: BatchedSample
             A model input batch encapsulated in a BatchedSample named tuple.
         output: torch.Tensor
             The output of the model for the input batch.
