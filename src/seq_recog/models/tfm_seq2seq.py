@@ -7,7 +7,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch import Tensor, TensorType
-from vit_pytorch import ViT, Extractor
+from vit_pytorch.extractor import Extractor
+from vit_pytorch import ViT
 
 from .misc import TokenEmbedding, PositionalEncoding
 
@@ -23,6 +24,7 @@ class TransformerSeq2SeqConfig(BaseModelConfig):
 
     loss_function: str = "cross-entropy"
     focal_loss_gamma: float = 1.0
+    focal_loss_alpha: float = 0.25
     label_smoothing: float = 0.0
     loss_weights: Optional[List[float]] = None
 
