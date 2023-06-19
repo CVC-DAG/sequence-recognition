@@ -55,8 +55,8 @@ class ComrefTformerExperiment(Experiment):
         self.valid_formatter = seq2seq_formatters.GreedyTextDecoder()
 
         # Metrics
-        self.training_metric = text.Levenshtein(self.vocab)
-        self.valid_metric = text.Levenshtein(self.vocab)
+        self.training_metric = text.Levenshtein(self.vocab, padded=True)
+        self.valid_metric = text.Levenshtein(self.vocab, padded=True)
 
         # Model and training-related
         self.model = ViTSeq2SeqTransformer(self.cfg.model, self.cfg.data)

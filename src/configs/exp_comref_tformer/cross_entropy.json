@@ -2,7 +2,7 @@
     "exp_name": "cross_entropy",
     "description": "Transformers for Music using Cross Entropy",
     "cipher": "Music",
-    "wandb_mode": "disabled",
+    "wandb_mode": "online",
     "wandb_project": "COMREF",
     "dirs": {
         "results_dir": "/home/ptorras/Documents/comref_experiments",
